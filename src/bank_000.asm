@@ -7865,9 +7865,13 @@ jr_000_2b54:
 
 
 ; Draws the objective TARGET number (e.g. the "2" in "GOLD 0/2"). [$c101] =
-; current quest/objective type index; $2b8f is a per-type word table of WRAM
-; addresses holding each type's target value (e.g. $c16a for the monster-kill
-; quest, $c128 for the gold quest - see NOTES.md).
+; current quest/objective type index (1-based: 1=Monster,2=Gold,3=Orb,4=Fairy);
+; $2b8f is a per-type word table of WRAM addresses holding each type's target
+; value: $c16b (Monster), $c16e (Gold), $c16d (Orb), $c170 (Fairy). These get
+; populated at quest start from a per-level BCD table in bank 2 ($6e10/$6e1a/
+; $6e24/$6e2e local to that bank, selected via a small header at $6e00) -
+; values confirmed to match strategywiki.org's quest objective tables exactly
+; (e.g. Gold: 2,4,6,9,15,25,38,55,79,99 for level 1-9/M). See NOTES.md.
 Call_000_2b5d_DrawObjectiveTargetTiles:
     call Call_000_2b72_DrawObjectiveProgressTiles ; $2b5d: $cd $72 $2b
     ld a, [$c101]                                 ; $2b60: $fa $01 $c1
@@ -7880,7 +7884,8 @@ Call_000_2b5d_DrawObjectiveTargetTiles:
 
 ; Draws the objective PROGRESS number (e.g. the "0" in "GOLD 0/2"). [$c101] =
 ; quest/objective type index; $2b97 is a per-type word table of WRAM
-; addresses holding each type's current progress (BCD).
+; addresses holding each type's current progress (BCD): $c16a (Monster),
+; $c128 (Gold), $c16c (Orb), $c16f (Fairy).
 Call_000_2b72_DrawObjectiveProgressTiles:
     ld a, [$c101]                                 ; $2b72: $fa $01 $c1
     ld hl, $2b97                                  ; $2b75: $21 $97 $2b

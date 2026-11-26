@@ -13,7 +13,7 @@
 - [ ] Monster-Datentabelle (Task #6) — Zwischenstand, Kampf-Navigation blockiert.
 - [ ] Dungeon-Sonderfelder (Task #7) — Zwischenstand, $c149-Hypothese widerlegt.
 - [x] Basis-Stats-Tabelle gefunden (`BaseStatsByLevel`, bank_000.asm $31c8+) — siehe unten.
-- [ ] Quest-Ziel-Tabellen pro Level (Task #9).
+- [x] Quest-Ziel-Tabellen pro Level gefunden (ROM-Bank 2, `$6e10`-`$6e37`) — siehe unten.
 - [ ] Lucky-Stat/Trefferchance (Task #10).
 - [ ] Item-System (Task #11).
 
@@ -605,3 +605,64 @@ Assembler-Autor bewusst so gewählt (ein Byte "Tabellenkopf" gespart), nicht ver
 
 Rebuild nach Umbenennung/Kommentierung/`db`-Ersetzung bleibt bit-identisch
 (MD5 `10d92861e262069ce31559e12b927aa0`).
+
+## Quest-Ziel-Tabellen GEFUNDEN (Task #9)
+
+**Fundweg:** Ausgehend von der bereits bekannten Objective-Anzeige-Logik
+(`Call_000_2b5d_DrawObjectiveTargetTiles`/`Call_000_2b72_DrawObjectiveProgressTiles`,
+bank_000.asm $2b5d/$2b72) die vier WRAM-Zieladressen über die Wort-Tabelle bei `$2b8f`
+(indiziert über `$c101`, 1-basiert) ermittelt — **direkte ROM-Byte-Auswertung statt
+Emulation** (keine Navigation/Kampf nötig):
+
+| Quest-Typ (`$c101`) | Fortschritt | Ziel |
+|---|---|---|
+| 1 Monster | `$c16a` | `$c16b` |
+| 2 Gold | `$c128` | `$c16e` |
+| 3 Orb | `$c16c` | `$c16d` |
+| 4 Fairy | `$c16f` | `$c170` |
+
+(Dynamisch gegengeprüft: In `gold_dungeon.state` ist `$c101`=2, `$c102`(Level)=1,
+`$c16e`=2 — exakt der Wiki-Wert "Gold Level 1: 2".)
+
+**Die eigentlichen Pro-Level-Tabellen** per ROM-Byte-Pattern-Suche gefunden: Die Wiki-
+Zielzahlen pro Quest-Typ (als 10-Byte-BCD-Sequenz, ein Byte pro Level 1-9+M) kommen
+**exakt** an vier aufeinanderfolgenden Stellen in **ROM-Bank 2** vor
+(Datei-Offset `$ae10`-`$ae37`, CPU-Adresse `$6e10`-`$6e37` wenn Bank 2 eingeblendet ist):
+
+```
+$6e10 (Monster): 03 04 05 07 10 12 15 18 20 25   → 3,4,5,7,10,12,15,18,20,25
+$6e1a (Gold):    02 04 06 09 15 25 38 55 79 99   → 2,4,6,9,15,25,38,55,79,99
+$6e24 (Orb):     01 02 03 04 05 06 06 06 07 08   → 1,2,3,4,5,6,6,6,7,8
+$6e2e (Fairy):   01 02 03 04 05 06 07 08 09 09   → 1,2,3,4,5,6,7,8,9,9
+```
+
+**Stimmt zahlengenau mit der Wiki-Walkthrough-Tabelle überein**
+(`temp/cave_noir_walkthrough_strategywiki.md`).
+
+**Zusätzlich gefunden:** Ein kleiner 16-Byte-"Header" direkt davor (`$6e00`-`$6e0f`,
+4 Einträge à 4 Byte), der für jeden Quest-Typ `[WRAM-Zieladresse, Tabellenzeiger-1]`
+verknüpft — z. B. Eintrag 0: `6b c1 0f 6e` = Ziel `$c16b`, Tabellenzeiger `$6e0f`
+(Tabelle beginnt effektiv bei `$6e10`, aber der gespeicherte Zeiger ist um 1 kleiner,
+weil `$c102`/Level 1-basiert ist — exakt dasselbe Muster wie bei `BaseStatsByLevel`,
+siehe oben). Reihenfolge und Zieladressen im Header stimmen 1:1 mit der oben gefundenen
+Objective-Zieladressen-Tabelle überein — starke Bestätigung, dass Zuordnung korrekt ist.
+
+**Nicht gefunden/nicht sicher verifiziert:** Der konkrete Code, der diesen Header +
+Tabelle zur Quest-Start-Zeit ausliest und in `$c16b` usw. schreibt (vermutlich ein
+Cross-Bank-Lookup mit explizitem ROM-Bank-Wechsel nach Bank 2, der Bank-Switch-Code
+selbst wurde nicht lokalisiert). Der ursprünglich vielversprechend aussehende Call-Pfad
+`jr_001_6195`/`Jump_000_3955` (bank_001.asm $6195ff) stellte sich beim genaueren Lesen
+als reine **Digit-zu-Tile-Zeichenroutine** heraus (liest einen bereits gesetzten Wert aus
+`[de]`, zeichnet ihn nur) — nicht die Stelle, an der der Wert ursprünglich gesetzt wird.
+
+**Bewusst nicht editiert:** `bank_002.asm` im Bereich `$6e00`-$6e37` enthält zwei echte,
+von anderswo referenzierte Sprungziele (`jr_002_6e0d`, `jr_002_6e39`) mitten in dem, was
+wir als reine Datentabelle identifiziert haben — ob das echte, erreichbare Code-Pfade
+sind oder nur weitere Fehldekodierungs-Artefakte, wurde nicht geklärt. Um das Risiko eines
+kaputten Rebuilds zu vermeiden, wurde dieser Bereich **nicht** in saubere `db`-Zeilen
+umgewandelt; die Tabellenwerte sind stattdessen hier in NOTES.md dokumentiert (per
+Python-Skript direkt aus der ROM-Datei gelesen, nicht über die Disassembly-Textdatei).
+
+Umbenannt/kommentiert: `Call_000_2b5d_DrawObjectiveTargetTiles`,
+`Call_000_2b72_DrawObjectiveProgressTiles` (bank_000.asm, nur Kommentare erweitert, keine
+neuen Labels). Rebuild bleibt bit-identisch.
