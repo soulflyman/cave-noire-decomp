@@ -14,7 +14,7 @@
 - [ ] Dungeon-Sonderfelder (Task #7) — Zwischenstand, $c149-Hypothese widerlegt.
 - [x] Basis-Stats-Tabelle gefunden (`BaseStatsByLevel`, bank_000.asm $31c8+) — siehe unten.
 - [x] Quest-Ziel-Tabellen pro Level gefunden (ROM-Bank 2, `$6e10`-`$6e37`) — siehe unten.
-- [ ] Lucky-Stat/Trefferchance (Task #10).
+- [x] Lucky-Stat/Trefferchance (Task #10).
 - [ ] Item-System (Task #11).
 
 ## Tooling (lokal im Projektordner)
@@ -666,3 +666,48 @@ Python-Skript direkt aus der ROM-Datei gelesen, nicht über die Disassembly-Text
 Umbenannt/kommentiert: `Call_000_2b5d_DrawObjectiveTargetTiles`,
 `Call_000_2b72_DrawObjectiveProgressTiles` (bank_000.asm, nur Kommentare erweitert, keine
 neuen Labels). Rebuild bleibt bit-identisch.
+
+## Lucky-Stat und Trefferchance GEKLÄRT (Task #10)
+
+**Kernbefund: Es gibt gar keine "Trefferchance"/Miss-Mechanik.** Jeder Angriff trifft immer.
+Das passt zum bereits vorher dokumentierten Befund ("Zufalls-/Trefferchancen-Suche" oben):
+der Schaden, den das Monster dem Spieler zufügt, ist ein deterministischer Tabellen-Lookup
+(`Call_001_518a`). Diese Session wurde zusätzlich die Spieler→Monster-Angriffsseite gefunden
+(`Call_001_5c47`/`Call_001_5c75`, bank_001.asm $5c47/$5c75) — auch dort **kein** Zufalls-
+Vergleich, sondern reine Tabellen-Auswahl je nach Teilnehmer-ID (`$c523`/`$c524`: Wert `<2`
+→ Spieler-Stat (`$c129`/`$c12a`, "effektiver Angriff/Verteidigung"), Wert `>=2` → Lookup im
+Monster-Array `$c5c0+id*16` (Offsets `$03`/`$06`)). Die anschließende Schadensformel
+($5c8a-$5cde) ist reine Ganzzahl-Arithmetik (Multiplikation/Division über
+`Call_000_03df`/`Call_000_03f4`, mit `$c539 and $1f` als Skalierungsfaktor — vermutlich ein
+Lage-/Richtungs-Bonus, kein Würfelwurf) mit Mindestschaden 1, falls Angriff·2 ≤ Verteidigung.
+Kein `rDIV`/Zufallszahl fließt ein.
+
+**Effektive Angriff/Verteidigung-Werte** (`$c129`/`$c12a`) werden on-the-fly berechnet:
+- `Call_001_5cf3` ($5cf3): `effektiver Angriff = wPlayerAttack($c121) + $c12d + $c12e`
+  (zwei Bonus-Bytes, BCD-Addition mit Clamp auf 99 über `Call_000_0374`).
+- `Call_001_5d0e` ($5d0e): `effektive Verteidigung = wPlayerDefense($c122) + $c12f + $c130`.
+- `$c12d`/`$c12e`/`$c12f`/`$c130` werden von Orb-Effekten befüllt (siehe unten) — vermutlich
+  temporäre Kampf-Buffs, nicht persistent. Nicht abschließend verifiziert.
+
+**Was `wPlayerLucky` ($c123) tatsächlich tut — NICHT Trefferchance, sondern Item/Orb-Effekte:**
+Alle 5 Lesestellen von `$c123` im ganzen Projekt liegen im Orb-Effekt-Dispatcher
+(`bank_001.asm`, Bereich $50ac-$5326, verzweigt über `$c516` = Orb-Typ-Index) und im
+Stats-Screen-Renderer ($5e46). Konkret:
+1. **Heilung** (`jr_001_51ec`, $51ec): `neue HP = min(wPlayerHP + wPlayerLucky, wPlayerMaxHP)`
+   (BCD-Addition + Clamp über `Call_000_0374`) — Lucky ist direkt der Heilbonus einer
+   Heiltrank-artigen Orb-Wirkung.
+2. **Orb-Typ 6** (`Jump_001_52e7`, $52e7): Heilung um `wPlayerLucky + 1`.
+3. **Zufälliger Event-Timer `$c515`** (`Call_001_50a2`-Bereich, $50ef): für die meisten
+   Orb-Typen wird `$c515 = Call_000_0456(rand, b = wPlayerLucky÷2) + 1`, geklemmt auf 99 —
+   ein Zufallswert aus dem LCG-PRNG bei `Call_000_0456` ($0456, Seed in `$c011`/`$c012`,
+   `state = state*9 + $0929 mod $11d7`), dessen *Bereich* von Lucky/2 abhängt (höheres
+   Lucky → größerer möglicher Wertebereich für `$c515`, z. B. eine Fallen-Zünddauer oder
+   Item-Wirkungsdauer). Für Orb-Typ `$10` wird statt Lucky die aktuelle Etage (`$c104`)
+   als Bereichsparameter verwendet.
+4. **Statusbildschirm** ($5e46-$5e69): Lucky wird nur als Ziffern-Anzeige neben
+   HP/MaxHP/Angriff/Verteidigung dargestellt (`Call_000_3955`), keine Berechnung.
+
+**Fazit:** "Trefferchance" als Frage war falsch gestellt — es existiert keine. Lucky ist ein
+reiner Item/Orb-Wirkungsmultiplikator (Heilmenge, Zufalls-Timer-Bereich), keine Kampf-Statistik
+im Sinne von Hit/Miss. Keine Code-Änderungen nötig (nur Doku); Rebuild unverändert
+bit-identisch (MD5 `10d92861e262069ce31559e12b927aa0`).
