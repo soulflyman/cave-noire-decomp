@@ -1,5 +1,16 @@
 # Fortschrittsnotizen
 
+## TODO / Offene Punkte (damit nichts verloren geht)
+
+- [ ] **In Arbeit:** Monster-KI / Bewegungsrichtung finden (vermutliche Quelle der
+      wahrgenommenen Zufälligkeit im Kampf). Siehe "Zufalls-/Trefferchancen-Suche" unten.
+- [ ] Gold-Zähler-Adresse finden (noch nicht mal mit Suche begonnen).
+- [ ] Monster-Kill-Zähler ("モンスター n/N") finden — braucht einen tatsächlichen Kill,
+      nicht nur Treffer (Spieler ist im Test gestorben, bevor ein Monster besiegt wurde).
+- [ ] Etagentiefe-Anzeige ("B 1F") finden.
+- [ ] Spieler-Tod-Verhalten / Game-Over-Screen noch nicht exploriert.
+- [ ] Code/Daten-Trennung (CDL) weiterhin zurückgestellt (bewusste Entscheidung, siehe unten).
+
 ## Tooling (lokal im Projektordner)
 
 - `tools/mgbdis/` — mgbdis v3.0 (Git-Submodule), Game Boy Disassembler
@@ -148,10 +159,4 @@ Strukturen/Tabellen hinweg verteilt ist. Das ist ein eigenständiges, deutlich g
 Teilprojekt (im Prinzip die komplette Monster-KI/Pfadfindung), nicht mehr nur ein einzelner
 Funktionsfund.
 
-**Offen für die nächste Session:**
-- Monster-Kill-Zähler-Adresse finden (braucht echten Kill, nicht nur Treffer — im Test ist der
-  Spieler gestorben, bevor das Monster besiegt wurde; Angriffsmechanik noch nicht verstanden,
-  bisheriges "in Monster hineinlaufen" verursacht nur gegenseitigen Schaden, aber keinen Kill
-  in der getesteten Zeit).
-- Gold-Zähler und Etagentiefe ("B 1F") noch nicht lokalisiert.
-- Spieler-Tod-Verhalten (Game-Over-Screen) noch nicht exploriert.
+(Offene Punkte: siehe TODO-Liste ganz oben in diesem Dokument.)
