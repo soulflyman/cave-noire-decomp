@@ -1,0 +1,10 @@
+src/*.o
+src/*.gb
+src/*.sym
+src/*.map
+__pycache__/
+*.pyc
+
+# Copyrighted ROMs - nicht ins Repo committen
+rom/*.gb
+rom/*.ips
