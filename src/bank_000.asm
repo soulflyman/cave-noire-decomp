@@ -5,6 +5,7 @@
 
 ; --- Known WRAM symbols (identified via RAM watchpoints, see NOTES.md) ---
 DEF wPlayerHP EQU $c120 ; current player HP, BCD-encoded (1 byte)
+DEF wCurrentFloor EQU $c104 ; current dungeon floor number (1 byte)
 
 SECTION "ROM Bank $000", ROM0[$0]
 
@@ -1859,7 +1860,7 @@ Call_000_08dc:
     call Call_000_0e2d                            ; $08dc: $cd $2d $0e
     call Call_000_0dde                            ; $08df: $cd $de $0d
     call Call_000_196a                            ; $08e2: $cd $6a $19
-    call Call_000_0ec9                            ; $08e5: $cd $c9 $0e
+    call Call_000_0ec9_DrawFloorNumberTile                            ; $08e5: $cd $c9 $0e
     call Call_000_0e37                            ; $08e8: $cd $37 $0e
     ld a, $4e                                     ; $08eb: $3e $4e
     call Call_000_00d9                            ; $08ed: $cd $d9 $00
@@ -2642,7 +2643,7 @@ Call_000_0d87:
     call Call_000_0260                            ; $0d99: $cd $60 $02
     call Call_000_0dde                            ; $0d9c: $cd $de $0d
     call Call_000_196a                            ; $0d9f: $cd $6a $19
-    call Call_000_0ec9                            ; $0da2: $cd $c9 $0e
+    call Call_000_0ec9_DrawFloorNumberTile                            ; $0da2: $cd $c9 $0e
     call Call_000_0e37                            ; $0da5: $cd $37 $0e
     ld a, $78                                     ; $0da8: $3e $78
     ld [$c149], a                                 ; $0daa: $ea $49 $c1
@@ -2901,13 +2902,18 @@ jr_000_0eb9:
     ld c, $00                                     ; $0ec5: $0e $00
     jr jr_000_0eb3                                ; $0ec7: $18 $ea
 
-Call_000_0ec9:
+; Plays a sound/effect, then draws wCurrentFloor as a single tile digit at
+; VRAM $98e9 (HUD "B nF" floor indicator), using tile base $10 instead of
+; the $9e font used elsewhere - this routine only runs on floor-transition
+; events (confirmed via hook during an actual staircase descent), which is
+; why it looked "dead" when only exercised during normal combat play.
+Call_000_0ec9_DrawFloorNumberTile:
     ld de, $4011                                  ; $0ec9: $11 $11 $40
     call Call_000_0ea8                            ; $0ecc: $cd $a8 $0e
-    ld de, $c104                                  ; $0ecf: $11 $04 $c1
+    ld de, wCurrentFloor                          ; $0ecf: $11 $04 $c1
     ld hl, $98e9                                  ; $0ed2: $21 $e9 $98
     ld bc, $1001                                  ; $0ed5: $01 $01 $10
-    jp Jump_000_0e83_BcdToTiles                              ; $0ed8: $c3 $83 $0e
+    jp Jump_000_0e83_BcdToTiles                            ; $0ed8: $c3 $83 $0e
 
 
 Call_000_0edb:

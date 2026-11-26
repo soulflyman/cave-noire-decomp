@@ -6,8 +6,8 @@
 - [x] Gold-Zähler-Adresse gefunden (`$c128` für den Gold-Quest-Typ) — siehe unten.
 - [x] Monster-Kill-Zähler-Adresse gefunden (`$c16a` für den Monster-Quest-Typ) — als
       Nebenprodukt der Gold-Suche, kein tatsächlicher Kill im Spiel nötig gewesen.
-- [ ] Etagentiefe-Anzeige ("B 1F") finden — siehe "Etagentiefe (nicht gefunden)" unten für
-      bereits ausgeschlossene Ansätze, bevor weitergesucht wird.
+- [x] Etagentiefe-Adresse gefunden (`$c104` = `wCurrentFloor`) — siehe "Etagentiefe GELÖST"
+      unten.
 - [x] Spieler-Tod/Game-Over-Screen exploriert — siehe unten.
 - [ ] Code/Daten-Trennung (CDL) weiterhin zurückgestellt (bewusste Entscheidung, siehe unten).
 
@@ -329,3 +329,85 @@ massiv, kein Zugang).
 Tiefenfortschritt. Mögliche nächste Schritte: (a) Missionsziel abschließen und prüfen, ob
 danach eine Treppe erscheint, (b) einen anderen Quest-Typ (Gold/Schwert/Orb) auf
 Etagenübergänge testen, da diese ggf. mehrstöckig sind.
+
+## Etagentiefe GELÖST: `$c104` = `wCurrentFloor`
+
+**Durchbruch dank User-Input zu den Spielregeln:** Treppen erfordern "draufstellen + A
+drücken" (nicht einfach hineinlaufen!) — deshalb fand die reine Richtungs-Bewegungs-Suche
+nie eine Treppe. Das erklärte auch, warum der Monster-Quest-Testraum (Quest 1, Level 1)
+keine Treppe zu haben schien: Dort gibt es tatsächlich keine (siehe unten) — im
+**Gold-Quest-Dungeon** (Säulen-Layout) dagegen schon.
+
+**Methode — "echter speicherbasierter Explorer" (ohne Bildinterpretation für die
+Navigation selbst):**
+1. Spielerposition aus RAM lesen (`$c503`/`$c504`), DFS-Kartierung per Tastendruck +
+   Positionsvergleich (kein Screenshot nötig), `$c120`=`0x99` für Unverwundbarkeit
+   während der Erkundung (neutralisiert die Monster-Verfolgungs-KI als Störfaktor).
+2. An jedem kartierten Feld **A gedrückt** und die VRAM-Tilemap-Signatur (erste 80 Byte
+   ab `$9800`) mit der bekannten "Item-Menü"-Signatur verglichen — nur bei Abweichung
+   einen Screenshot gespeichert (3 von 42 Feldern in Gold-Dungeon wichen ab).
+3. Feld `(6,1)` im Gold-Dungeon zeigte nach A einen Screenshot mit **"B 2F"** — echter
+   Etagenwechsel ausgelöst!
+4. WRAM-Diff vor/nach dem Wechsel (gefiltert auf "war 1, hat sich geändert"):
+   `$c001`,`$c002` (1→2, aber generische System-/Bank-Variablen, schon beim Boot
+   referenziert — nicht die Etage), `$c104` (1→2, starker Kandidat).
+5. Per PyBoy-Hook bestätigt: `Call_000_0ec9_DrawFloorNumberTile` (bank_000.asm, $0ec9)
+   feuert **genau beim Etagenwechsel** und liest `$c104` (=2 beim Hook-Treffer), zeichnet
+   es als einzelne Ziffer nach VRAM `$98e9` (Tile-Basis `$10`, anderer Font als die
+   `$9e`-Basis von HP/Gold/Monster-Zähler).
+
+**Wichtige Lektion:** `Call_000_0ec9` wurde in einer früheren Session fälschlich als
+"toter Code" eingestuft, weil er im Monster-Kampf-Kontext nie feuerte. Er ist aber
+völlig real — nur kontextabhängig (nur bei Etagenwechsel-Ereignissen aktiv). **"Nie
+getroffen in diesem Testszenario" ≠ "nie ausgeführt im Spiel"** — immer mit dem
+relevanten Spielereignis dynamisch verifizieren, nicht pauschal verwerfen.
+
+**Ergebnis:** `wCurrentFloor EQU $c104` in `src/bank_000.asm` definiert, Routine
+umbenannt zu `Call_000_0ec9_DrawFloorNumberTile`. Rebuild bit-identisch.
+
+**Zum Monster-Quest-Testraum (Quest 1, Level 1) ohne Treppe:** Laut User-Infos sollten
+Treppen "von Anfang an frei zugänglich" sein. Nach jetzt sehr gründlicher Kartierung +
+A-Test an praktisch jedem Feld hat dieser spezielle Raum trotzdem keine gefunden — bleibt
+als Anomalie offen (evtl. quest-typ-spezifisch, evtl. Dungeon-Generierungs-Sonderfall für
+"Level 1"). Nicht weiter verfolgt, da die Methode am Gold-Dungeon erfolgreich war.
+
+## Etagentiefe GELÖST: `$c104` = `wCurrentFloor`
+
+**Durchbruch dank User-Input zu den Spielregeln:** Treppen erfordern "draufstellen + A
+drücken" (nicht einfach hineinlaufen!) — deshalb fand die reine Richtungs-Bewegungs-Suche
+nie eine Treppe. Das erklärte auch, warum der Monster-Quest-Testraum (Quest 1, Level 1)
+keine Treppe zu haben schien: Dort gibt es tatsächlich keine (siehe unten) — im
+**Gold-Quest-Dungeon** (Säulen-Layout) dagegen schon.
+
+**Methode — "echter speicherbasierter Explorer" (ohne Bildinterpretation für die
+Navigation selbst):**
+1. Spielerposition aus RAM lesen (`$c503`/`$c504`), DFS-Kartierung per Tastendruck +
+   Positionsvergleich (kein Screenshot nötig), `$c120`=`0x99` für Unverwundbarkeit
+   während der Erkundung (neutralisiert die Monster-Verfolgungs-KI als Störfaktor).
+2. An jedem kartierten Feld **A gedrückt** und die VRAM-Tilemap-Signatur (erste 80 Byte
+   ab `$9800`) mit der bekannten "Item-Menü"-Signatur verglichen — nur bei Abweichung
+   einen Screenshot gespeichert (3 von 42 Feldern in Gold-Dungeon wichen ab).
+3. Feld `(6,1)` im Gold-Dungeon zeigte nach A einen Screenshot mit **"B 2F"** — echter
+   Etagenwechsel ausgelöst!
+4. WRAM-Diff vor/nach dem Wechsel (gefiltert auf "war 1, hat sich geändert"):
+   `$c001`,`$c002` (1→2, aber generische System-/Bank-Variablen, schon beim Boot
+   referenziert — nicht die Etage), `$c104` (1→2, starker Kandidat).
+5. Per PyBoy-Hook bestätigt: `Call_000_0ec9_DrawFloorNumberTile` (bank_000.asm, $0ec9)
+   feuert **genau beim Etagenwechsel** und liest `$c104` (=2 beim Hook-Treffer), zeichnet
+   es als einzelne Ziffer nach VRAM `$98e9` (Tile-Basis `$10`, anderer Font als die
+   `$9e`-Basis von HP/Gold/Monster-Zähler).
+
+**Wichtige Lektion:** `Call_000_0ec9` wurde in einer früheren Session fälschlich als
+"toter Code" eingestuft, weil er im Monster-Kampf-Kontext nie feuerte. Er ist aber
+völlig real — nur kontextabhängig (nur bei Etagenwechsel-Ereignissen aktiv). **"Nie
+getroffen in diesem Testszenario" ≠ "nie ausgeführt im Spiel"** — immer mit dem
+relevanten Spielereignis dynamisch verifizieren, nicht pauschal verwerfen.
+
+**Ergebnis:** `wCurrentFloor EQU $c104` in `src/bank_000.asm` definiert, Routine
+umbenannt zu `Call_000_0ec9_DrawFloorNumberTile`. Rebuild bit-identisch.
+
+**Zum Monster-Quest-Testraum (Quest 1, Level 1) ohne Treppe:** Laut User-Infos sollten
+Treppen "von Anfang an frei zugänglich" sein. Nach jetzt sehr gründlicher Kartierung +
+A-Test an praktisch jedem Feld hat dieser spezielle Raum trotzdem keine gefunden — bleibt
+als Anomalie offen (evtl. quest-typ-spezifisch, evtl. Dungeon-Generierungs-Sonderfall für
+"Level 1"). Nicht weiter verfolgt, da die Methode am Gold-Dungeon erfolgreich war.
