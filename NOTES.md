@@ -87,6 +87,34 @@ dynamisch verifizieren, dass der Code tatsächlich erreicht wird, bevor man ihn 
 andere, noch nicht gefundene Zeichenroutine (vermutlich einfachere Einzelziffer-Darstellung
 ohne den generischen BCD-Konverter, da es sich um einstellige Werte handelt).
 
+## Angriffsmechanik geklärt
+
+**Es gibt keinen manuellen Angriffsknopf.** Kampf läuft vollautomatisch pro Spielzug ab,
+sobald Spieler und Monster benachbart sind — bestätigt per OAM-Sprite-Tracking (PyBoy
+`get_sprite`): Schaden trat ein, während Spieler und Monster auf benachbarten Feldern
+standen (nicht überlappend), nach mehreren Zügen ohne Wirkung an derselben Position
+(klassisches rundenbasiertes RNG-Treffersystem, kein garantierter Treffer pro Zug).
+
+Code-Pfad (bank_001.asm, ab `jr_001_43fb_CheckMonsterSlot1`, $43fb):
+
+1. Pro Spielzug werden bis zu **4 Monster-Slots** durchgegangen (`$c541` = aktueller
+   Slot-Index 1-4). Je Slot: Adjazenz-/Positionswert in `$c525`-`$c528`, Schadenswert in
+   `$c529`-`$c52c`.
+2. `Call_001_44aa_CheckMonsterSlotHit` ($44aa) prüft den Positionswert des Slots
+   (`sub $02` + Tabellen-Lookup über `Call_001_4b49`) — vermutlich Adjazenz-Check.
+3. Bei Treffer: Schadenswert wird nach `$c532` kopiert, dort von
+   `jr_001_5b90_ApplyPlayerDamageIfAny` ($5b90) ausgelesen (`$ff` = kein Treffer).
+4. `jr_001_5ba3_SubtractDamageFromHP` ($5ba3) zieht den Schaden **BCD-kodiert** von
+   `wPlayerHP` ab, über die generische Hilfsroutine
+   `Call_000_037b_SubtractBCD16Clamped` (bank_000.asm, $037b) — klemmt bei 0 (kein
+   Unterlauf), nutzt intern `daa` (Decimal-Adjust) für BCD-Subtraktion.
+5. Danach Neuzeichnen der HP-Anzeige über `Call_000_2b1e_ConvertPlayerHPToTiles`
+   (siehe oben).
+
+Noch nicht gefunden: der eigentliche Zufalls-/Trefferchance-Rolling-Mechanismus (ob und
+wo `$FF04`/rDIV hier einfließt) sowie die Gegenangriffs-Logik (Spieler → Monster-Schaden,
+die floating "2"-Zahl über dem Monster in `scratch/longfight.png`).
+
 **Offen für die nächste Session:**
 - Monster-Kill-Zähler-Adresse finden (braucht echten Kill, nicht nur Treffer — im Test ist der
   Spieler gestorben, bevor das Monster besiegt wurde; Angriffsmechanik noch nicht verstanden,

@@ -766,7 +766,9 @@ Call_000_0374:
     ret                                           ; $037a: $c9
 
 
-Call_000_037b:
+; Subtracts BCD value [de] from BCD value bc, clamping to 0 on underflow.
+; Used e.g. to subtract incoming damage from wPlayerHP.
+Call_000_037b_SubtractBCD16Clamped:
     call Call_000_039f                            ; $037b: $cd $9f $03
     ret nc                                        ; $037e: $d0
 
@@ -2654,7 +2656,7 @@ Call_000_0db5:
 
     ld c, a                                       ; $0dbb: $4f
     ld e, $01                                     ; $0dbc: $1e $01
-    call Call_000_037b                            ; $0dbe: $cd $7b $03
+    call Call_000_037b_SubtractBCD16Clamped                            ; $0dbe: $cd $7b $03
     ld a, c                                       ; $0dc1: $79
     ld [$c14c], a                                 ; $0dc2: $ea $4c $c1
     push af                                       ; $0dc5: $f5

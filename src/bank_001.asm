@@ -626,7 +626,7 @@ jr_001_43a6:
     ld b, h                                       ; $43bc: $44
     ld hl, $c542                                  ; $43bd: $21 $42 $c5
     dec [hl]                                      ; $43c0: $35
-    jr z, jr_001_43fb                             ; $43c1: $28 $38
+    jr z, jr_001_43fb_CheckMonsterSlot1                             ; $43c1: $28 $38
 
     ld a, [hl]                                    ; $43c3: $7e
     rrca                                          ; $43c4: $0f
@@ -670,7 +670,11 @@ jr_001_43e3:
     ret                                           ; $43fa: $c9
 
 
-jr_001_43fb:
+; Checks up to 4 adjacent-monster slots in turn for an attack against the player.
+; Slot N: $c524+N-1 = adjacency/position flag, $c528+N = damage value -> $c532,
+; $c541 = current slot number (1-4). No manual "attack" button exists; combat is
+; resolved automatically each turn based on slot adjacency (see Call_001_44aa_CheckMonsterSlotHit).
+jr_001_43fb_CheckMonsterSlot1:
     call Call_000_32a3                            ; $43fb: $cd $a3 $32
     call Call_001_4b95                            ; $43fe: $cd $95 $4b
     call Call_000_32b2                            ; $4401: $cd $b2 $32
@@ -679,7 +683,7 @@ jr_001_43fb:
     ld a, [$c529]                                 ; $4409: $fa $29 $c5
     ld [$c532], a                                 ; $440c: $ea $32 $c5
     ld de, $c525                                  ; $440f: $11 $25 $c5
-    call Call_001_44aa                            ; $4412: $cd $aa $44
+    call Call_001_44aa_CheckMonsterSlotHit                            ; $4412: $cd $aa $44
     jr z, jr_001_4438                             ; $4415: $28 $21
 
 jr_001_4417:
@@ -706,7 +710,7 @@ jr_001_4438:
     ld a, [$c52a]                                 ; $443d: $fa $2a $c5
     ld [$c532], a                                 ; $4440: $ea $32 $c5
     ld de, $c526                                  ; $4443: $11 $26 $c5
-    call Call_001_44aa                            ; $4446: $cd $aa $44
+    call Call_001_44aa_CheckMonsterSlotHit                            ; $4446: $cd $aa $44
     jr z, jr_001_445b                             ; $4449: $28 $10
 
     jr jr_001_4417                                ; $444b: $18 $ca
@@ -725,7 +729,7 @@ jr_001_445b:
     ld a, [$c52b]                                 ; $4460: $fa $2b $c5
     ld [$c532], a                                 ; $4463: $ea $32 $c5
     ld de, $c527                                  ; $4466: $11 $27 $c5
-    call Call_001_44aa                            ; $4469: $cd $aa $44
+    call Call_001_44aa_CheckMonsterSlotHit                            ; $4469: $cd $aa $44
     jr z, jr_001_447e                             ; $446c: $28 $10
 
     jr jr_001_4417                                ; $446e: $18 $a7
@@ -744,7 +748,7 @@ jr_001_447e:
     ld a, [$c52c]                                 ; $4483: $fa $2c $c5
     ld [$c532], a                                 ; $4486: $ea $32 $c5
     ld de, $c528                                  ; $4489: $11 $28 $c5
-    call Call_001_44aa                            ; $448c: $cd $aa $44
+    call Call_001_44aa_CheckMonsterSlotHit                            ; $448c: $cd $aa $44
     jr z, jr_001_44a1                             ; $448f: $28 $10
 
     jr jr_001_4417                                ; $4491: $18 $84
@@ -763,7 +767,7 @@ jr_001_44a1:
     jp Jump_001_4135                              ; $44a7: $c3 $35 $41
 
 
-Call_001_44aa:
+Call_001_44aa_CheckMonsterSlotHit:
     ld a, [de]                                    ; $44aa: $1a
     sub $02                                       ; $44ab: $d6 $02
     jr c, jr_001_44b6                             ; $44ad: $38 $07
@@ -1990,7 +1994,7 @@ Call_001_4b36:
     ld a, $06                                     ; $4b3f: $3e $06
     rst RST_28                                    ; $4b41: $ef
     ld c, [hl]                                    ; $4b42: $4e
-    call Call_000_037b                            ; $4b43: $cd $7b $03
+    call Call_000_037b_SubtractBCD16Clamped                            ; $4b43: $cd $7b $03
     ld [hl], c                                    ; $4b46: $71
     ld a, c                                       ; $4b47: $79
     ret                                           ; $4b48: $c9
@@ -4740,7 +4744,7 @@ Call_001_5b57:
     ld a, [hl]                                    ; $5b5a: $7e
     ld [hl], $00                                  ; $5b5b: $36 $00
     cp $01                                        ; $5b5d: $fe $01
-    jr z, jr_001_5b90                             ; $5b5f: $28 $2f
+    jr z, jr_001_5b90_ApplyPlayerDamageIfAny                             ; $5b5f: $28 $2f
 
     ld a, [$c23c]                                 ; $5b61: $fa $3c $c2
     or a                                          ; $5b64: $b7
@@ -4766,11 +4770,13 @@ Call_001_5b57:
     ret                                           ; $5b8f: $c9
 
 
-jr_001_5b90:
+; $c532 holds the pending damage amount from the monster slot that just attacked
+; (set in the per-slot combat loop above, e.g. $4409-$448c). $ff means "no attack".
+jr_001_5b90_ApplyPlayerDamageIfAny:
     ld a, [$c532]                                 ; $5b90: $fa $32 $c5
     ld e, a                                       ; $5b93: $5f
     cp $ff                                        ; $5b94: $fe $ff
-    jr nz, jr_001_5ba3                            ; $5b96: $20 $0b
+    jr nz, jr_001_5ba3_SubtractDamageFromHP                            ; $5b96: $20 $0b
 
     ld a, $05                                     ; $5b98: $3e $05
     ld [$c131], a                                 ; $5b9a: $ea $31 $c1
@@ -4779,7 +4785,8 @@ jr_001_5b90:
     ret                                           ; $5ba2: $c9
 
 
-jr_001_5ba3:
+; wPlayerHP -= e (BCD), clamped to 0, then redraws the HP digits in the HUD.
+jr_001_5ba3_SubtractDamageFromHP:
     ld a, e                                       ; $5ba3: $7b
     or a                                          ; $5ba4: $b7
     ret z                                         ; $5ba5: $c8
@@ -4788,7 +4795,7 @@ jr_001_5ba3:
     ld c, a                                       ; $5ba9: $4f
     ld b, a                                       ; $5baa: $47
     push bc                                       ; $5bab: $c5
-    call Call_000_037b                            ; $5bac: $cd $7b $03
+    call Call_000_037b_SubtractBCD16Clamped                            ; $5bac: $cd $7b $03
     ld a, c                                       ; $5baf: $79
     pop bc                                        ; $5bb0: $c1
     ld c, a                                       ; $5bb1: $4f
@@ -5195,7 +5202,7 @@ jr_001_5dd6:
 
     ld c, [hl]                                    ; $5ddc: $4e
     ld e, $01                                     ; $5ddd: $1e $01
-    call Call_000_037b                            ; $5ddf: $cd $7b $03
+    call Call_000_037b_SubtractBCD16Clamped                            ; $5ddf: $cd $7b $03
     ld [hl], c                                    ; $5de2: $71
     ld a, $64                                     ; $5de3: $3e $64
     jp Jump_000_00d9                              ; $5de5: $c3 $d9 $00
