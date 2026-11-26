@@ -52,10 +52,23 @@ Versuch per Byte-Diff-Scan (vor/nach Schaden) in WRAM (`0xC000`–`0xDFFF`) und 
   Teil eines Bitfelds/einer Struct mit Offset-Padding, oder wird erst beim HUD-Redraw aus
   anderen Werten berechnet statt direkt dekrementiert).
 
-**Nächster sinnvoller Schritt:** echte Write-Watchpoints statt Snapshot-Polling. PyBoys
-`hook_register` kann an einer festen Adresse einen Breakpoint setzen, aber nicht "bei jedem
-Schreibzugriff auf RAM-Bereich X" triggern. Dafür bräuchte es entweder:
-  - einen echten Debugger mit RAM-Write-Breakpoint (SameBoy/BGB GUI, erfordert entsperrten Desktop), oder
-  - gezieltes Durchsuchen des Disassembly nach der HUD-Zeichenroutine (Suche nach der Pixel-/
-    Zeichenkette "HP" bzw. dem Text-Tilemap-Schreibcode), um von dort rückwärts zur
-    Quelladresse des HP-Werts zu gelangen (statischer Analyse-Ansatz statt dynamischem Scan).
+**Gelöst:** Der Grund, warum die naive Byte-Diff-Suche scheiterte: HP wird **BCD-kodiert**
+gespeichert (`HP=10` → Byte `$10`, nicht `$0A`). Gefunden über einen Hybrid-Ansatz:
+
+1. Per PyBoy die VRAM-BG-Tilemap ($9800-$9BFF) vor/nach einem Treffer verglichen
+   → geänderte Tiles bei `$9A02`/`$9A03` (Bildschirmposition der HP-Ziffern).
+2. Diese Adressen im Disassembly als Literal gesucht (`grep '9a0[0-9a-f]' bank_*.asm`)
+   → direkter Treffer in `Call_000_2bc2_DrawStatTiles` (bank_000.asm).
+3. Von dort rückwärts verfolgt zu `Call_000_2b1e_ConvertPlayerHPToTiles`, das
+   `wPlayerHP` ($C120) liest und über die generische Routine
+   `Call_000_0e83_BcdToTiles` (BCD-Nibble-Split, Tile-Basis `$9e` = Ziffer '0') in
+   Tile-IDs umwandelt.
+
+**Ergebnis:** `wPlayerHP EQU $c120` (BCD, 1 Byte) ist jetzt in `src/bank_000.asm` als Symbol
+definiert und an den Call-Sites verwendet. Rebuild bleibt bit-identisch (MD5
+`10d92861e262069ce31559e12b927aa0`).
+
+**Vermutung für weitere Stats:** Gold, Level, Etagen-Tiefe etc. werden wahrscheinlich nach
+demselben Muster über `Call_000_0e83_BcdToTiles` angezeigt — andere Quelladressen,
+gleiche Tile-Konvertierung. Lohnt sich, alle `call Call_000_0e83_BcdToTiles`-Stellen
+durchzugehen und deren `de`-Quelladresse zu prüfen, um weitere WRAM-Variablen zu identifizieren.

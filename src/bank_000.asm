@@ -3,6 +3,9 @@
 ; mgbdis v3.0 - Game Boy ROM disassembler by Matt Currie and contributors.
 ; https://github.com/mattcurrie/mgbdis
 
+; --- Known WRAM symbols (identified via RAM watchpoints, see NOTES.md) ---
+DEF wPlayerHP EQU $c120 ; current player HP, BCD-encoded (1 byte)
+
 SECTION "ROM Bank $000", ROM0[$0]
 
 RST_00::
@@ -459,7 +462,7 @@ jr_000_0210:
     jr z, jr_000_0222                             ; $0219: $28 $07
 
 jr_000_021b:
-    call Call_000_2bc2                            ; $021b: $cd $c2 $2b
+    call Call_000_2bc2_DrawStatTiles                            ; $021b: $cd $c2 $2b
     call Call_000_2c80                            ; $021e: $cd $80 $2c
     ret                                           ; $0221: $c9
 
@@ -482,7 +485,7 @@ jr_000_022d:
 
 jr_000_0237:
     call Call_000_2229                            ; $0237: $cd $29 $22
-    call Call_000_2bc2                            ; $023a: $cd $c2 $2b
+    call Call_000_2bc2_DrawStatTiles                            ; $023a: $cd $c2 $2b
     jr jr_000_022d                                ; $023d: $18 $ee
 
 jr_000_023f:
@@ -2808,8 +2811,11 @@ Call_000_0e71:
     ret                                           ; $0e82: $c9
 
 
-Call_000_0e83:
-Jump_000_0e83:
+; Converts a BCD-encoded byte at [de] into two tile IDs written to [hl+].
+; In: de = source BCD byte, b = tile ID base for digit '0' (e.g. $9e), a/c = digit count
+; Leading-zero digit is written as tile $00 (blank) unless a nonzero digit preceded it.
+Call_000_0e83_BcdToTiles:
+Jump_000_0e83_BcdToTiles:
     ld a, c                                       ; $0e83: $79
     ld c, $00                                     ; $0e84: $0e $00
 
@@ -2891,7 +2897,7 @@ Call_000_0ec9:
     ld de, $c104                                  ; $0ecf: $11 $04 $c1
     ld hl, $98e9                                  ; $0ed2: $21 $e9 $98
     ld bc, $1001                                  ; $0ed5: $01 $01 $10
-    jp Jump_000_0e83                              ; $0ed8: $c3 $83 $0e
+    jp Jump_000_0e83_BcdToTiles                              ; $0ed8: $c3 $83 $0e
 
 
 Call_000_0edb:
@@ -7772,7 +7778,7 @@ Call_000_2ae6:
     call Call_000_2b5d                            ; $2aef: $cd $5d $2b
     call Call_000_2c45                            ; $2af2: $cd $45 $2c
     call Call_000_2c52                            ; $2af5: $cd $52 $2c
-    jp Jump_000_2bc2                              ; $2af8: $c3 $c2 $2b
+    jp Jump_000_2bc2_DrawStatTiles                              ; $2af8: $c3 $c2 $2b
 
 
 Call_000_2afb:
@@ -7786,18 +7792,19 @@ Call_000_2afb:
 
 
 Call_000_2b0f:
-    call Call_000_2b1e                            ; $2b0f: $cd $1e $2b
+    call Call_000_2b1e_ConvertPlayerHPToTiles                            ; $2b0f: $cd $1e $2b
     ld de, $c124                                  ; $2b12: $11 $24 $c1
     ld hl, $9a05                                  ; $2b15: $21 $05 $9a
     ld bc, $9e01                                  ; $2b18: $01 $01 $9e
-    jp Jump_000_0e83                              ; $2b1b: $c3 $83 $0e
+    jp Jump_000_0e83_BcdToTiles                              ; $2b1b: $c3 $83 $0e
 
 
-Call_000_2b1e:
+; Converts the player HP (wPlayerHP, BCD) into its 2 digit tile IDs at $c210/$c211.
+Call_000_2b1e_ConvertPlayerHPToTiles:
     ld hl, $c210                                  ; $2b1e: $21 $10 $c2
-    ld de, $c120                                  ; $2b21: $11 $20 $c1
+    ld de, wPlayerHP                              ; $2b21: $11 $20 $c1
     ld bc, $9e01                                  ; $2b24: $01 $01 $9e
-    call Call_000_0e83                            ; $2b27: $cd $83 $0e
+    call Call_000_0e83_BcdToTiles                            ; $2b27: $cd $83 $0e
     ld a, [$c210]                                 ; $2b2a: $fa $10 $c2
     ld [$c212], a                                 ; $2b2d: $ea $12 $c2
     ld a, [$c211]                                 ; $2b30: $fa $11 $c2
@@ -7813,7 +7820,7 @@ Call_000_2b37:
 
     ld hl, $c21c                                  ; $2b3e: $21 $1c $c2
     ld bc, $9e01                                  ; $2b41: $01 $01 $9e
-    call Call_000_0e83                            ; $2b44: $cd $83 $0e
+    call Call_000_0e83_BcdToTiles                            ; $2b44: $cd $83 $0e
     ld a, [$c21c]                                 ; $2b47: $fa $1c $c2
     ld [$c21e], a                                 ; $2b4a: $ea $1e $c2
     ld a, [$c21d]                                 ; $2b4d: $fa $1d $c2
@@ -7838,7 +7845,7 @@ Call_000_2b5d:
     call Call_000_041e                            ; $2b66: $cd $1e $04
     ld hl, $9a28                                  ; $2b69: $21 $28 $9a
     ld bc, $9e01                                  ; $2b6c: $01 $01 $9e
-    jp Jump_000_0e83                              ; $2b6f: $c3 $83 $0e
+    jp Jump_000_0e83_BcdToTiles                              ; $2b6f: $c3 $83 $0e
 
 
 Call_000_2b72:
@@ -7847,7 +7854,7 @@ Call_000_2b72:
     call Call_000_041e                            ; $2b78: $cd $1e $04
     ld hl, $c218                                  ; $2b7b: $21 $18 $c2
     ld bc, $9e01                                  ; $2b7e: $01 $01 $9e
-    call Call_000_0e83                            ; $2b81: $cd $83 $0e
+    call Call_000_0e83_BcdToTiles                            ; $2b81: $cd $83 $0e
     ld a, [$c218]                                 ; $2b84: $fa $18 $c2
     ld [$c21a], a                                 ; $2b87: $ea $1a $c2
     ld a, [$c219]                                 ; $2b8a: $fa $19 $c2
@@ -7895,8 +7902,9 @@ jr_000_2ba1:
     ret                                           ; $2bc1: $c9
 
 
-Call_000_2bc2:
-Jump_000_2bc2:
+; Writes the HP/stat digit tiles into the BG tilemap (HUD row, screen $9a02 = HP tens digit).
+Call_000_2bc2_DrawStatTiles:
+Jump_000_2bc2_DrawStatTiles:
     ld a, [$c212]                                 ; $2bc2: $fa $12 $c2
     ld [$9a02], a                                 ; $2bc5: $ea $02 $9a
     ld a, [$c213]                                 ; $2bc8: $fa $13 $c2

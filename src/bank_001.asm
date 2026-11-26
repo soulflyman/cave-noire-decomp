@@ -4794,7 +4794,7 @@ jr_001_5ba3:
     ld c, a                                       ; $5bb1: $4f
     ld [$c120], a                                 ; $5bb2: $ea $20 $c1
     push bc                                       ; $5bb5: $c5
-    call Call_000_2b1e                            ; $5bb6: $cd $1e $2b
+    call Call_000_2b1e_ConvertPlayerHPToTiles                            ; $5bb6: $cd $1e $2b
     pop bc                                        ; $5bb9: $c1
     ld a, c                                       ; $5bba: $79
     cp $04                                        ; $5bbb: $fe $04
