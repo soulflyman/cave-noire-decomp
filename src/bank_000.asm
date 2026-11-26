@@ -958,7 +958,10 @@ Jump_000_041a:
     ret                                           ; $041d: $c9
 
 
-Call_000_041e:
+; de = word_table[a] (word-sized table lookup: hl = table base set by caller,
+; a = index). Used e.g. by Call_000_2b72_DrawObjectiveProgressTiles/Call_000_2b5d_DrawObjectiveTargetTiles to fetch the
+; per-quest-type objective-progress/target WRAM address via [$c101].
+Call_000_041e_WordTableLookupToDE:
     add a                                         ; $041e: $87
     rst RST_28                                    ; $041f: $ef
 
@@ -3547,7 +3550,7 @@ Call_000_1288:
     push hl                                       ; $1294: $e5
     ld a, [$c201]                                 ; $1295: $fa $01 $c2
     ld hl, $2047                                  ; $1298: $21 $47 $20
-    call Call_000_041e                            ; $129b: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $129b: $cd $1e $04
     pop hl                                        ; $129e: $e1
     ld b, $08                                     ; $129f: $06 $08
 
@@ -4892,7 +4895,7 @@ jr_000_19e5:
     call Call_000_16f9                            ; $19e5: $cd $f9 $16
     ld a, [$c101]                                 ; $19e8: $fa $01 $c1
     ld hl, $4054                                  ; $19eb: $21 $54 $40
-    call Call_000_041e                            ; $19ee: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $19ee: $cd $1e $04
     ld hl, $8800                                  ; $19f1: $21 $00 $88
     call Call_000_1894                            ; $19f4: $cd $94 $18
     jp Jump_000_04aa                              ; $19f7: $c3 $aa $04
@@ -5001,7 +5004,7 @@ Call_000_1ac7:
 Call_000_1ad3:
     call Call_000_04cb                            ; $1ad3: $cd $cb $04
     ld hl, $5011                                  ; $1ad6: $21 $11 $50
-    call Call_000_041e                            ; $1ad9: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $1ad9: $cd $1e $04
     ld a, [$c520]                                 ; $1adc: $fa $20 $c5
     ld hl, $4ac7                                  ; $1adf: $21 $c7 $4a
     call Call_000_041a                            ; $1ae2: $cd $1a $04
@@ -5862,7 +5865,7 @@ Jump_000_2082:
     jr z, jr_000_20ae                             ; $20a0: $28 $0c
 
     ld hl, $7cef                                  ; $20a2: $21 $ef $7c
-    call Call_000_041e                            ; $20a5: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $20a5: $cd $1e $04
     ld hl, $d700                                  ; $20a8: $21 $00 $d7
     call Call_000_1894                            ; $20ab: $cd $94 $18
 
@@ -6664,7 +6667,7 @@ Call_000_24fa:
     rst RST_20                                    ; $2506: $e7
     ld a, [bc]                                    ; $2507: $0a
     ld hl, $206b                                  ; $2508: $21 $6b $20
-    call Call_000_041e                            ; $250b: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $250b: $cd $1e $04
     ld a, e                                       ; $250e: $7b
     ld [$c207], a                                 ; $250f: $ea $07 $c2
     ld a, d                                       ; $2512: $7a
@@ -6748,7 +6751,7 @@ Call_000_255e:
     rst RST_38                                    ; $256a: $ff
     ld a, [bc]                                    ; $256b: $0a
     ld hl, $206b                                  ; $256c: $21 $6b $20
-    call Call_000_041e                            ; $256f: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $256f: $cd $1e $04
     ld a, e                                       ; $2572: $7b
     ld [$c207], a                                 ; $2573: $ea $07 $c2
     ld a, d                                       ; $2576: $7a
@@ -6790,7 +6793,7 @@ Call_000_25a2:
     inc bc                                        ; $25ac: $03
     ld a, [bc]                                    ; $25ad: $0a
     ld hl, $206b                                  ; $25ae: $21 $6b $20
-    call Call_000_041e                            ; $25b1: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $25b1: $cd $1e $04
     ld a, e                                       ; $25b4: $7b
     ld [$c207], a                                 ; $25b5: $ea $07 $c2
     ld a, d                                       ; $25b8: $7a
@@ -6832,7 +6835,7 @@ Call_000_25e4:
     dec bc                                        ; $25ee: $0b
     ld a, [bc]                                    ; $25ef: $0a
     ld hl, $206b                                  ; $25f0: $21 $6b $20
-    call Call_000_041e                            ; $25f3: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $25f3: $cd $1e $04
     ld a, e                                       ; $25f6: $7b
     ld [$c207], a                                 ; $25f7: $ea $07 $c2
     ld a, d                                       ; $25fa: $7a
@@ -7782,7 +7785,7 @@ Call_000_2ae6:
     call Call_000_2afb                            ; $2ae6: $cd $fb $2a
     call Call_000_2b0f                            ; $2ae9: $cd $0f $2b
     call Call_000_2b37                            ; $2aec: $cd $37 $2b
-    call Call_000_2b5d                            ; $2aef: $cd $5d $2b
+    call Call_000_2b5d_DrawObjectiveTargetTiles                            ; $2aef: $cd $5d $2b
     call Call_000_2c45                            ; $2af2: $cd $45 $2c
     call Call_000_2c52                            ; $2af5: $cd $52 $2c
     jp Jump_000_2bc2_DrawStatTiles                              ; $2af8: $c3 $c2 $2b
@@ -7845,20 +7848,27 @@ jr_000_2b54:
     ret                                           ; $2b5c: $c9
 
 
-Call_000_2b5d:
-    call Call_000_2b72                            ; $2b5d: $cd $72 $2b
+; Draws the objective TARGET number (e.g. the "2" in "GOLD 0/2"). [$c101] =
+; current quest/objective type index; $2b8f is a per-type word table of WRAM
+; addresses holding each type's target value (e.g. $c16a for the monster-kill
+; quest, $c128 for the gold quest - see NOTES.md).
+Call_000_2b5d_DrawObjectiveTargetTiles:
+    call Call_000_2b72_DrawObjectiveProgressTiles ; $2b5d: $cd $72 $2b
     ld a, [$c101]                                 ; $2b60: $fa $01 $c1
     ld hl, $2b8f                                  ; $2b63: $21 $8f $2b
-    call Call_000_041e                            ; $2b66: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $2b66: $cd $1e $04
     ld hl, $9a28                                  ; $2b69: $21 $28 $9a
     ld bc, $9e01                                  ; $2b6c: $01 $01 $9e
     jp Jump_000_0e83_BcdToTiles                              ; $2b6f: $c3 $83 $0e
 
 
-Call_000_2b72:
+; Draws the objective PROGRESS number (e.g. the "0" in "GOLD 0/2"). [$c101] =
+; quest/objective type index; $2b97 is a per-type word table of WRAM
+; addresses holding each type's current progress (BCD).
+Call_000_2b72_DrawObjectiveProgressTiles:
     ld a, [$c101]                                 ; $2b72: $fa $01 $c1
     ld hl, $2b97                                  ; $2b75: $21 $97 $2b
-    call Call_000_041e                            ; $2b78: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $2b78: $cd $1e $04
     ld hl, $c218                                  ; $2b7b: $21 $18 $c2
     ld bc, $9e01                                  ; $2b7e: $01 $01 $9e
     call Call_000_0e83_BcdToTiles                            ; $2b81: $cd $83 $0e
@@ -8613,7 +8623,7 @@ jr_000_2f53:
     ld a, c                                       ; $2f56: $79
     inc a                                         ; $2f57: $3c
     ld hl, $368c                                  ; $2f58: $21 $8c $36
-    call Call_000_041e                            ; $2f5b: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $2f5b: $cd $1e $04
     call Call_000_3e08                            ; $2f5e: $cd $08 $3e
     ret nc                                        ; $2f61: $d0
 
@@ -10544,7 +10554,7 @@ Call_000_3a50:
 
     ld a, [$c031]                                 ; $3a5a: $fa $31 $c0
     ld hl, $3a7f                                  ; $3a5d: $21 $7f $3a
-    call Call_000_041e                            ; $3a60: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $3a60: $cd $1e $04
     ld hl, $3b4e                                  ; $3a63: $21 $4e $3b
     ld bc, $da28                                  ; $3a66: $01 $28 $da
     ld a, $08                                     ; $3a69: $3e $08
@@ -10939,7 +10949,7 @@ jr_000_3c2c:
     ld [$c126], a                                 ; $3c51: $ea $26 $c1
     ld a, [$c512]                                 ; $3c54: $fa $12 $c5
     ld hl, $368c                                  ; $3c57: $21 $8c $36
-    call Call_000_041e                            ; $3c5a: $cd $1e $04
+    call Call_000_041e_WordTableLookupToDE                            ; $3c5a: $cd $1e $04
     call Call_000_3e08                            ; $3c5d: $cd $08 $3e
     ret nc                                        ; $3c60: $d0
 

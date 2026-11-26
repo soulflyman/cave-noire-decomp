@@ -3,9 +3,9 @@
 ## TODO / Offene Punkte (damit nichts verloren geht)
 
 - [x] Monster-KI / "Zufalls"-Mechanismus gefunden — siehe "Zufalls-Mechanismus GELÖST" unten.
-- [ ] Gold-Zähler-Adresse finden (noch nicht mal mit Suche begonnen).
-- [ ] Monster-Kill-Zähler ("モンスター n/N") finden — braucht einen tatsächlichen Kill,
-      nicht nur Treffer (Spieler ist im Test gestorben, bevor ein Monster besiegt wurde).
+- [x] Gold-Zähler-Adresse gefunden (`$c128` für den Gold-Quest-Typ) — siehe unten.
+- [x] Monster-Kill-Zähler-Adresse gefunden (`$c16a` für den Monster-Quest-Typ) — als
+      Nebenprodukt der Gold-Suche, kein tatsächlicher Kill im Spiel nötig gewesen.
 - [ ] Etagentiefe-Anzeige ("B 1F") finden.
 - [ ] Spieler-Tod-Verhalten / Game-Over-Screen noch nicht exploriert.
 - [ ] Code/Daten-Trennung (CDL) weiterhin zurückgestellt (bewusste Entscheidung, siehe unten).
@@ -185,5 +185,37 @@ Bewegungszähler ab (bestimmt, ob/wohin es sich stattdessen bewegt).
 
 Umbenannt/kommentiert: `Jump_000_0433_RstJumpTableTrampoline` (bank_000.asm),
 `Jump_001_79c6` (Kommentar, bank_001.asm). Rebuild bleibt bit-identisch.
+
+## Gold-Zähler & Monster-Kill-Zähler gefunden
+
+**Wichtige Erkenntnis zuerst:** "Gold" ist — wie vermutet — kein ständiger Spieler-Besitz,
+sondern einer von mehreren **Quest-Zieltypen**. Die Quest/Level-Auswahl ist kein
+Nummern-Zähler, sondern ein **Cursor über 4 Kartensymbolen** (unten-links=Quest1,
+oben-links=Quest2 ["G"-Sack-Symbol], oben-rechts=Quest3, unten-rechts=Quest4). Missionstext
+für Quest 2: *"2ゴールドをあつめる。"* ("Sammle 2 Gold") — bestätigt Quest 2 = Gold-Typ.
+
+**Fundweg** (gleiche Methode wie bei HP: VRAM-Tilemap-Diff → Literal-Grep → Hook-Verifikation):
+
+- `Call_000_2b72_DrawObjectiveProgressTiles` (bank_000.asm, $2b72) zeichnet die
+  "Fortschritt"-Ziffer der Quest-Anzeige (z. B. die "0" in "ゴールド 0/2"). Liest
+  `[$c101]` (aktueller Quest-Typ-Index), holt darüber per
+  `Call_000_041e_WordTableLookupToDE` die typ-spezifische Fortschritts-Adresse aus einer
+  Zeiger-Tabelle bei `$2b97`.
+- `Call_000_2b5d_DrawObjectiveTargetTiles` (bank_000.asm, $2b5d) analog für die
+  "Ziel"-Ziffer (die "2"), Tabelle bei `$2b8f`.
+- Per PyBoy-Hook auf `$2b7b` (direkt nach dem Tabellen-Lookup in
+  `Call_000_2b72_DrawObjectiveProgressTiles`) `DE` ausgelesen:
+  - **Quest-Typ 1 (Monster, `$c101`=1): `DE = $c16a`** → Monster-Kill-Fortschritt.
+  - **Quest-Typ 2 (Gold, `$c101`=2): `DE = $c128`** → Gold-Fortschritt.
+  - Werte stimmten mit angezeigtem HUD überein (`$c128`=0 bei "ゴールド 0/2").
+
+**Wichtig:** Diese Adressen sind nicht "DIE Gold-Variable" im absoluten Sinne, sondern die
+jeweils aktive Objective-Progress-Adresse für den *gerade aktiven* Quest-Typ (`$c101`
+wählt die Tabellenzeile). Für Quest-Typ 3/4 (vermutlich Schwert/Orb oder Schild/Orb) wurden
+die entsprechenden Adressen noch nicht ausgelesen — wäre mit derselben Methode trivial
+nachzuholen (Quest wählen, `$2b7b` hooken, `DE` lesen).
+
+Umbenannt: `Call_000_041e_WordTableLookupToDE`, `Call_000_2b72_DrawObjectiveProgressTiles`,
+`Call_000_2b5d_DrawObjectiveTargetTiles` (alle bank_000.asm). Rebuild bit-identisch.
 
 (Offene Punkte: siehe TODO-Liste ganz oben in diesem Dokument.)
