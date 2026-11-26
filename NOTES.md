@@ -11,7 +11,7 @@
 - [x] Spieler-Tod/Game-Over-Screen exploriert — siehe unten.
 - [ ] Code/Daten-Trennung (CDL) weiterhin zurückgestellt (bewusste Entscheidung, siehe unten).
 - [x] Monster-Datentabelle (Task #6) — HP-Feld gefunden (Offset `$06`), Typ `$01`=Crab identifiziert.
-- [ ] Dungeon-Sonderfelder (Task #7) — Zwischenstand, $c149-Hypothese widerlegt.
+- [x] Dungeon-Sonderfelder (Task #7) — Tile-Klassen-Dispatcher + 3 Warnsymbol-Checks gefunden, Lava/Tür/Dunkelheit offen.
 - [x] Basis-Stats-Tabelle gefunden (`BaseStatsByLevel`, bank_000.asm $31c8+) — siehe unten.
 - [x] Quest-Ziel-Tabellen pro Level gefunden (ROM-Bank 2, `$6e10`-`$6e37`) — siehe unten.
 - [x] Lucky-Stat/Trefferchance (Task #10).
@@ -602,6 +602,67 @@ den Tile-/Kollisions-Routinen der eigentlichen Spielschleife liegen (analog zu
 Bewegung), noch nicht lokalisiert. Benötigt vermutlich einen Savestate, der tatsächlich
 auf einer bröckelnden Kachel steht, um dynamisch zu verifizieren — in den aktuellen
 Savestates nicht vorhanden.
+
+## Dungeon-Sonderfelder — Tile-Klassen-Dispatcher gefunden (Task #7, Fortsetzung)
+
+**Zentraler Fund:** `Call_000_2ef1` (bank_000.asm, $2ef1, bereits für die Monster-Kollision
+bekannt) liefert über `[$c241] and $7f` eine **"Tile-Klasse"** für das Feld in Bewegungs-
+richtung. Der Haupt-Dispatcher dafür liegt direkt im Bewegungs-Ausführungscode (ca. $3698ff,
+bank_000.asm) und setzt je Klasse den Haupt-Spielzustand `$c126`:
+
+| Tile-Klasse (`$c241 and $7f`) | Ziel-Zustand `$c126` | Mechanik | Status |
+|---|---|---|---|
+| `$07` | `3` | nicht weiter verfolgt | offen |
+| `$08` | ruft `$5d40` (Quest-Typ-Tabelle), dann `$0b` | **Treppe** — `$5d40` ist dieselbe aus der Etagentiefe-Suche bekannte Routine | **bestätigt** (Wiederverwendung eines bereits dynamisch verifizierten Funds) |
+| `$0a` | → `jr_000_36e0`, dort `$09` | **Item-/Chest-Aufsammeln** (Task #11) | **bestätigt** (Wiederverwendung) |
+| `$0b` | ruft `$408a`, dann `$0c` | **Warp** — liest ein Adresspaar `$c427`/`$c428` ("Partnerposition"), vergleicht die aktuelle Position gegen beide und benutzt per `Call_000_2db5`/Wort-Tabelle bei `$206b` die jeweils andere als neue Zielkoordinate (`$c50b`/`$c50c`) | **neu, plausibel, nicht dynamisch getestet** |
+| sonst | `4` | normaler begehbarer Boden | — |
+
+**Drei Warnsymbol-Checks identifiziert** (alle folgen demselben Muster: zufallsbasierter
+Trigger über `Call_000_3e08` + Vergleich der Zielfeld-Tile-ID gegen ein typ-spezifisches
+ID-Paar, bei Treffer Zeichnen eines kleinen 2-Tile-Symbols oberhalb des Spielers über einen
+gemeinsamen Hilfscode (`jr_000_332d`, schreibt Positions-/Tile-Daten nach `$da00`-`$da0f`,
+dem bekannten OAM-Shadow-Puffer):
+
+| Einstiegspunkt | Tile-ID-Paar (`$c24e`/`$c24f`) | Symbol-Tile-ID | Wiki-Übereinstimmung |
+|---|---|---|---|
+| `Call_000_2f3f` → `Call_000_3787` → `Jump_000_3323` | `$1d`/`$23` | `$5a` | **"!!"-Bodenbruch-Warnung** ("ground is cracking") |
+| `Call_000_2f48` → (Schleife über alle 4 Richtungen, bank_000.asm $3759ff) → `Jump_000_3327` | `$09`/`$7f` | `$42` | **"?"-Geheimwand-Warnung** ("wall can be broken") |
+| — → `Call_000_3772` (direkter, nicht-zufälliger Tile-Check `==$0f`) → `Jump_000_332b` | — | `$56` | **Jump-Icon** ("jumping person" über einer überspringbaren Grube) |
+
+Die Zuordnung basiert auf der strukturellen Übereinstimmung (zufällig vs. deterministisch,
+3 unterschiedliche Symbol-Tiles, passend zu den 3 im Wiki beschriebenen Boden-Warnsymbolen)
+und ist **statisch hergeleitet, aber nicht dynamisch verifiziert** — ein PyBoy-Test (60
+Schritte Hin-und-Her auf zwei Kacheln im Gold-Dungeon, OAM-Tile-IDs mitgeloggt) zeigte keines
+der drei Symbole, vermutlich weil in diesem konkreten Testraum keine der benötigten
+Boden-Subtypen vorkommen oder die Zufallschance zu niedrig für 60 Versuche war. Als nächster
+Schritt bräuchte es einen Savestate mit einem tatsächlich bröckelnden Boden, um das sicher
+zu bestätigen.
+
+**Zwei weitere, strukturell identische "Scanne alle 4 Richtungen nach Tile-ID X"-Routinen**
+gefunden (`Call_000_2f48` von `bank_001.asm:$53a2`, `Call_000_2f4c` von `bank_001.asm:$572c`,
+beide im Item-Effekt-Bereich aus Task #11) — vermutlich die Umsetzung von **"Ganseki" (Grube
+füllen/Felsbarrikade)** bzw. **"Oriru" (Treppe auf Nachbarfeld setzen)**, die jeweils ein
+angrenzendes Feld mit passendem Tile-Typ suchen müssen. Nicht einzeln verifiziert.
+
+**Nicht gefunden (Zeitrahmen dieser Session):**
+- **Lava** ("lose all HP if fall in") — keine dedizierte Tile-Klasse identifiziert.
+- **Tür** (Dungeon-Ausgang) — keine dedizierte Tile-Klasse identifiziert; vermutlich eine
+  weitere Tile-Klasse im selben Dispatcher (`$07`?), nicht weiter verfolgt.
+- **Fairy Cage** (mit Schlüssel entsperren) — nicht untersucht.
+- **Dunkelheit/Fackel-Mechanik** (vom User explizit erfragt: dunkle Räume mit 1-2 Feld
+  Sichtradius, per Akari-Item oder Flame-Eye-Besiegen aufhellbar): **nicht gefunden.**
+  Kein Hinweis auf eine "sichtbares Feld"-Bitmap oder Sichtradius-Berechnung in den
+  untersuchten Bereichen (`Call_000_2fb7`/`Call_000_2ff6`, die Dreifach-Puffer-Scroll-Kopie
+  bei `$da00`-`$dd00`, sind generische Hintergrund-Scroll-Hilfsfunktionen, keine Sicht-
+  radius-Logik). Würde wahrscheinlich eine eigene, noch nicht untersuchte Rendering-Routine
+  für den Dungeon-Raum selbst erfordern (die eigentliche "zeichne Raum aus Dungeon-Layout"-
+  Funktion wurde in dieser Session nicht lokalisiert) — guter Ausgangspunkt für eine
+  Folge-Session: nach einer Routine suchen, die pro Kachel die Distanz zur Spielerposition
+  prüft, bevor sie zeichnet statt eine leere/dunkle Kachel.
+
+Keine Code-Änderungen (reine Dokumentation, Erkenntnisse basieren auf bereits vorhandenem
+Disassembly-Text ohne neue `db`-Konvertierungen). Kein Rebuild nötig.
 
 ## Basis-Stats-Tabelle GEFUNDEN (Task #8)
 
