@@ -2273,7 +2273,7 @@ jr_000_0b1b:
 
     ld a, [$c120]                                 ; $0b33: $fa $20 $c1
     or a                                          ; $0b36: $b7
-    jp z, Jump_000_0c13                           ; $0b37: $ca $13 $0c
+    jp z, Jump_000_0c13_TriggerGameOver ; death check after Call_000_3355  ; $0b37: $ca $13 $0c
 
     call Call_000_3355                            ; $0b3a: $cd $55 $33
     ld a, [$c109]                                 ; $0b3d: $fa $09 $c1
@@ -2285,7 +2285,7 @@ jr_000_0b1b:
     call Call_000_3734                            ; $0b46: $cd $34 $37
     ld a, [$c120]                                 ; $0b49: $fa $20 $c1
     or a                                          ; $0b4c: $b7
-    jp z, Jump_000_0c13                           ; $0b4d: $ca $13 $0c
+    jp z, Jump_000_0c13_TriggerGameOver ; death check after Call_000_3734  ; $0b4d: $ca $13 $0c
 
     ld a, [$c10a]                                 ; $0b50: $fa $0a $c1
     rst RST_00                                    ; $0b53: $c7
@@ -2396,7 +2396,13 @@ jr_000_0bbf:
     jp Jump_000_00d9                              ; $0c10: $c3 $d9 $00
 
 
-Jump_000_0c13:
+; Game-over trigger. Reached from two call sites that check `wPlayerHP == 0`
+; after the main per-turn update (around $0b33 and $0b49). Forces HP to 0 via
+; a large forced "hit" (e=$99) through the normal damage-subtract routine,
+; switches the main game-state dispatcher ($c100) to state $09 ("Game Over" /
+; "残念!! もう1回 チャレンジ!!" screen, see NOTES.md), then plays the
+; defeat jingle via the sound trampoline (Call_000_00d9/Jump_000_00d9).
+Jump_000_0c13_TriggerGameOver:
     ld a, $64                                     ; $0c13: $3e $64
     ld [$da02], a                                 ; $0c15: $ea $02 $da
     add $02                                       ; $0c18: $c6 $02
@@ -2591,7 +2597,7 @@ jr_000_0d3d:
 
     ld hl, $c149                                  ; $0d48: $21 $49 $c1
     dec [hl]                                      ; $0d4b: $35
-    jp z, Jump_000_0c13                           ; $0d4c: $ca $13 $0c
+    jp z, Jump_000_0c13_TriggerGameOver                           ; $0d4c: $ca $13 $0c
 
     ld a, [hl]                                    ; $0d4f: $7e
     and $03                                       ; $0d50: $e6 $03

@@ -273,7 +273,7 @@ das Spiel läuft noch ein paar Frames weiter (Monster bewegt sich, zeigt z. B. d
 **A drücken** → zurück zum **Guild-Menü** (kein Permadeath, keine Bestrafung sichtbar,
 einfache "Nochmal versuchen"-Schleife zurück zum Hauptmenü).
 
-**Trigger-Code noch nicht lokalisiert:** Im unmittelbaren Schadens-Anwendungscode
+**Trigger-Code GEFUNDEN:** Im unmittelbaren Schadens-Anwendungscode
 (`jr_001_5ba3_SubtractDamageFromHP`, bank_001.asm $5ba3) wird nach dem Abzug geprüft:
 ```
 cp $04 ; ret nc      ; HP >= 4 → nichts weiter
@@ -281,9 +281,42 @@ or a   ; ret z        ; HP == 0 → ebenfalls nichts weiter (!)
 ```
 Nur der Bereich HP 1-3 löst hier einen Zusatzeffekt aus (vermutlich Warnton/Blinken bei
 niedriger Lebensenergie, über eine Tabelle bei `$5bc7` + `Jump_000_00d9`). **HP==0 wird
-hier explizit NICHT behandelt** — der eigentliche Game-Over-Trigger muss also zentral in
-der Haupt-Spielschleife liegen (vermutlich ein "nach jedem Zug: prüfe ob Spieler tot"-Check),
-nicht direkt im Schadenscode selbst. Noch nicht gefunden, wo genau.
+hier explizit NICHT behandelt** — wie vermutet liegt der eigentliche Trigger zentral in der
+Haupt-Spielschleife, nicht im Schadenscode selbst.
+
+Alle Leser von `wPlayerHP` (`$c120`) in bank_000.asm/bank_001.asm durchsucht. Gefunden in der
+Haupt-Zug-Update-Routine (`src/bank_000.asm`), **zwei** `HP==0`-Prüfungen direkt nach den
+beiden Haupt-Unterroutinenaufrufen pro Zug:
+```
+call Call_000_3355
+ld a, [$c120]
+or a
+jp z, Jump_000_0c13_TriggerGameOver ; $0b37
+...
+call Call_000_3734
+ld a, [$c120]
+or a
+jp z, Jump_000_0c13_TriggerGameOver ; $0b4d
+```
+`Jump_000_0c13_TriggerGameOver` ($0c13) macht:
+1. Erzwingt HP auf 0 über einen künstlichen Riesen-Treffer (`e = $99`) durch die normale
+   Schadens-Abzugsroutine (`call $5ba3`) — redundante Absicherung, falls HP durch den Aufrufer
+   noch nicht exakt 0 ist.
+2. Setzt den Haupt-Spielzustands-Dispatcher `$c100` auf `$09` → das ist der Zustand, der den
+   "残念!! もう1回 チャレンジ!!"-Screen zeichnet/anzeigt.
+3. Setzt `$c149 = $40` (Frame-/Animationszähler, siehe unten) und spielt den Verlust-Jingle
+   über das bekannte Sound-Trampolin (`Call_000_00d9`/`Jump_000_00d9`).
+
+**Dritte Aufrufstelle, andere Bedingung:** Bei $0d4c gibt es einen dritten Sprung zu
+`Jump_000_0c13_TriggerGameOver`, aber **nicht** über eine `wPlayerHP`-Prüfung, sondern über
+einen generischen Countdown: `ld hl, $c149; dec [hl]; jp z, ...`. `$c149` ist derselbe
+Zähler, den der Trigger selbst auf `$40` setzt — dieser Code-Block gehört zu einem anderen
+Spielzustand (Countdown-/Timeout-Mechanik, z. B. eine zeitbasierte Todesursache wie Gift oder
+Hunger) und wurde nicht weiter zurückverfolgt, da die HP-basierten Haupttrigger das eigentliche
+Ziel der Untersuchung waren.
+
+Rebuild nach Umbenennung (`Jump_000_0c13` → `Jump_000_0c13_TriggerGameOver`, plus Kommentare)
+bleibt bit-identisch (MD5 `10d92861e262069ce31559e12b927aa0`).
 
 Gespeicherter State: `scratch/states/death.state` (Frame des Todes),
 `scratch/states/gameover.state` (fertiger Game-Over-Screen).

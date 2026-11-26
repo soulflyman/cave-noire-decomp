@@ -12,3 +12,5 @@ rom/*.ips
 # Python venv und PyBoy-Explorationsartefakte
 .venv/
 scratch/
+
+temp/

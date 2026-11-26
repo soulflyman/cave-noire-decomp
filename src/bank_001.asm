@@ -578,7 +578,7 @@ jr_001_433e:
     call Call_000_0374                            ; $4372: $cd $74 $03
     ld a, c                                       ; $4375: $79
     ld [$c16f], a                                 ; $4376: $ea $6f $c1
-    call Call_000_2b72                            ; $4379: $cd $72 $2b
+    call Call_000_2b72_DrawObjectiveProgressTiles                            ; $4379: $cd $72 $2b
     call Call_000_314e                            ; $437c: $cd $4e $31
     jp Jump_001_4135                              ; $437f: $c3 $35 $41
 
@@ -4766,7 +4766,7 @@ Call_001_5b57:
     rst RST_28                                    ; $5b87: $ef
     ld a, [$c224]                                 ; $5b88: $fa $24 $c2
     ld [hl], a                                    ; $5b8b: $77
-    call Call_000_2b72                            ; $5b8c: $cd $72 $2b
+    call Call_000_2b72_DrawObjectiveProgressTiles                            ; $5b8c: $cd $72 $2b
     ret                                           ; $5b8f: $c9
 
 
