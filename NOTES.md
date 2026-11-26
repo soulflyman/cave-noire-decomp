@@ -8,7 +8,7 @@
       Nebenprodukt der Gold-Suche, kein tatsächlicher Kill im Spiel nötig gewesen.
 - [ ] Etagentiefe-Anzeige ("B 1F") finden — siehe "Etagentiefe (nicht gefunden)" unten für
       bereits ausgeschlossene Ansätze, bevor weitergesucht wird.
-- [ ] Spieler-Tod-Verhalten / Game-Over-Screen noch nicht exploriert.
+- [x] Spieler-Tod/Game-Over-Screen exploriert — siehe unten.
 - [ ] Code/Daten-Trennung (CDL) weiterhin zurückgestellt (bewusste Entscheidung, siehe unten).
 
 ## Tooling (lokal im Projektordner)
@@ -259,3 +259,31 @@ tatsächlich nur Deko — die echte Treppe muss anderswo im (bisher nicht vollst
 erkundeten) Raum oder in einem angrenzenden Raum liegen. Nächstes Mal: Raum vollständiger
 abgehen (wir hatten nur die Top-Wand als Grenze bestätigt, nicht alle 4 Seiten/Ecken) statt
 anzunehmen, die Plattform sei die Treppe.
+
+## Spieler-Tod / Game-Over-Screen
+
+Bei `wPlayerHP` = 0 verschwindet der Spieler-Sprite sofort (kein Sterbe-Animation-Delay),
+das Spiel läuft noch ein paar Frames weiter (Monster bewegt sich, zeigt z. B. den
+"2"-Schadens-Popup von einem letzten Gegenangriff), dann erscheint der Game-Over-Screen:
+
+> **残念！！**
+> **もう1回 チャレンジ！！**
+> ("Schade!! Nochmal versuchen!!") — mit Sphären-Grafik und Spieler-Sprite unten.
+
+**A drücken** → zurück zum **Guild-Menü** (kein Permadeath, keine Bestrafung sichtbar,
+einfache "Nochmal versuchen"-Schleife zurück zum Hauptmenü).
+
+**Trigger-Code noch nicht lokalisiert:** Im unmittelbaren Schadens-Anwendungscode
+(`jr_001_5ba3_SubtractDamageFromHP`, bank_001.asm $5ba3) wird nach dem Abzug geprüft:
+```
+cp $04 ; ret nc      ; HP >= 4 → nichts weiter
+or a   ; ret z        ; HP == 0 → ebenfalls nichts weiter (!)
+```
+Nur der Bereich HP 1-3 löst hier einen Zusatzeffekt aus (vermutlich Warnton/Blinken bei
+niedriger Lebensenergie, über eine Tabelle bei `$5bc7` + `Jump_000_00d9`). **HP==0 wird
+hier explizit NICHT behandelt** — der eigentliche Game-Over-Trigger muss also zentral in
+der Haupt-Spielschleife liegen (vermutlich ein "nach jedem Zug: prüfe ob Spieler tot"-Check),
+nicht direkt im Schadenscode selbst. Noch nicht gefunden, wo genau.
+
+Gespeicherter State: `scratch/states/death.state` (Frame des Todes),
+`scratch/states/gameover.state` (fertiger Game-Over-Screen).
