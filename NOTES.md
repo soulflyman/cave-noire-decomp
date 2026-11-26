@@ -6,7 +6,8 @@
 - [x] Gold-Zähler-Adresse gefunden (`$c128` für den Gold-Quest-Typ) — siehe unten.
 - [x] Monster-Kill-Zähler-Adresse gefunden (`$c16a` für den Monster-Quest-Typ) — als
       Nebenprodukt der Gold-Suche, kein tatsächlicher Kill im Spiel nötig gewesen.
-- [ ] Etagentiefe-Anzeige ("B 1F") finden.
+- [ ] Etagentiefe-Anzeige ("B 1F") finden — siehe "Etagentiefe (nicht gefunden)" unten für
+      bereits ausgeschlossene Ansätze, bevor weitergesucht wird.
 - [ ] Spieler-Tod-Verhalten / Game-Over-Screen noch nicht exploriert.
 - [ ] Code/Daten-Trennung (CDL) weiterhin zurückgestellt (bewusste Entscheidung, siehe unten).
 
@@ -219,3 +220,34 @@ Umbenannt: `Call_000_041e_WordTableLookupToDE`, `Call_000_2b72_DrawObjectiveProg
 `Call_000_2b5d_DrawObjectiveTargetTiles` (alle bank_000.asm). Rebuild bit-identisch.
 
 (Offene Punkte: siehe TODO-Liste ganz oben in diesem Dokument.)
+
+## Etagentiefe ("B 1F") — noch nicht gefunden
+
+**Anders als HP/Gold/Monster-Zähler wird die Etagenziffer per OAM-Sprite gezeichnet**, nicht
+über die BG-Tilemap (das feste Sprite `tile=18` bei Bildschirmposition (144,128) im
+Dungeon-HUD ist die "1" von "1F"; "B" und "F" selbst sind statische BG-Tiles bei
+row16/17, col16 bzw. col19 — grep nach `$9a90`/`$9a91`-artigen Adressen bringt daher nichts).
+
+**Ausprobiert, ohne Erfolg:**
+- Die kreisförmige "Loch"-Struktur in der Test-Dungeon-Karte (`scratch/states/dungeon.state`)
+  ist eine solide 3×3-Plattform **ohne begehbaren Zugang** (von allen 4 Seiten blockiert,
+  kein Scrollen über die Raumgrenze hinaus feststellbar) — vermutlich reine Deko, keine
+  echte Treppe. Ohne einen echten Etagenwechsel im Spiel lässt sich die VRAM-Diff-Methode
+  (die bei HP funktioniert hat) nicht anwenden.
+- Alle WRAM-Bytes mit Wert `1` im Bereich `$c100`-`$c150` (9 Kandidaten: `c100,c101,c102,
+  c104,c106,c115,c125,c140,c14f`) einzeln auf `2` gepoked: keiner zeigt "2F". `$c125`=2
+  **blendet die Ziffer komplett aus** (zeigt "B  F", kein Zeichen) — hängt also mit dieser
+  Anzeige zusammen, ist aber vermutlich ein Render-Zustands-Flag, nicht der Zähler selbst.
+- `Call_000_32b2`/`Call_000_32b9` (generische Sprite-Positionierungsroutine, bank_000.asm)
+  wird beim Dungeon-Eintritt 54× aufgerufen — offenbar für viele verschiedene HUD-Sprites
+  gemeinsam genutzt, nicht spezifisch für die Etagenziffer; Hook dort lieferte keinen
+  eindeutigen Hinweis.
+- Das vermeintliche OAM-Shadow-Buffer-Match bei `$da9c`/`$db9c`/`$dc9c`/`$dd30`/`$dd7c`
+  (Y=144,X=152,Tile=18 in Hardware-Rohwerten) gehört zu den bereits bekannten
+  Mehrfach-Puffern bei `$da00`-`$dd00` (siehe `Call_000_2fb7`, Hintergrund-Scroll-Kopie) —
+  nicht eindeutig der Etagenzähler-Quelle zuordenbar.
+
+**Realistischer nächster Schritt:** Eine echte Dungeon mit erreichbarer Treppe finden (evtl.
+bei einem anderen Quest-Typ, oder durch Abschluss des Missionsziels wird die Treppe
+freigeschaltet) und dort die VRAM/OAM-Diff-Methode anwenden — dieselbe Technik, die bei HP
+und Gold funktioniert hat, braucht nur ein echtes Vorher/Nachher-Ereignis.
