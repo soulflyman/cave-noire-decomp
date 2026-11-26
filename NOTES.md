@@ -115,6 +115,39 @@ Noch nicht gefunden: der eigentliche Zufalls-/Trefferchance-Rolling-Mechanismus 
 wo `$FF04`/rDIV hier einfließt) sowie die Gegenangriffs-Logik (Spieler → Monster-Schaden,
 die floating "2"-Zahl über dem Monster in `scratch/longfight.png`).
 
+## Zufalls-/Trefferchancen-Suche (Zwischenstand, nicht abgeschlossen)
+
+**Ausgeschlossen:**
+- Alle `rDIV`/`$FF04`-Treffer im Disassembly sind Fehldekodierungen (umgeben von `nop`/`rst $38`-
+  Datenmüll), keiner liegt in bank 0/1 (wo der Kampfcode lebt).
+- Der Schadenswert selbst (`$c529`-`$c52c`) ist **deterministisch** — ein reiner Tabellen-
+  Lookup pro Monstertyp über `Call_001_518a` (generische `hl[a]`-Lookup-Hilfsfunktion,
+  `RST_28` ist nachweislich nur `hl += a`, siehe Vektor bei `$0028`), kein Zufallswert.
+  Bestätigt durch Beobachtung: Schaden war in allen Tests exakt "2".
+- `Call_001_44aa_CheckMonsterSlotHit` macht keinen Zufalls-Vergleich, nur einen Adjazenz-
+  Check über eine Tabelle (`Call_001_4b49`).
+- Der `$c542`/`$59dd`-Mechanismus (Bit-Rotation als Tabellenindex) steuert nur die
+  Animationsgeschwindigkeit (`$c543`), nicht Kampfentscheidungen.
+
+**Gefunden, aber nicht abgeschlossen:** Die Bewegungs-Engine. Per OAM-Positions-Tracking
+(PyBoy) wurde `$c226` als Monster-Spaltenposition identifiziert (Pixel-X / 16). Das Spiel
+ist vollständig rundenbasiert — ohne Tasteneingabe bewegt sich nichts (verifiziert: 40
+Ticks Leerlauf ohne jede Positionsänderung).
+
+`Call_001_4817` (bank_001.asm, $4817) ist die Positions-Update-Routine: liest eine
+Bewegungs-Delta aus einer Tabelle (Struktur ab `hl`, Offset `l=2`) und addiert sie auf die
+aktuelle Position (`$c225`/`$c226`). Von dort rückwärts verfolgt zu `Call_000_2eee`/
+`Call_000_2f25` (bank_000.asm) — das sind Kollisions-/Tile-Lookup-Routinen (prüfen, ob das
+Zielfeld begehbar ist), ebenfalls kein sichtbarer Zufallszugriff.
+
+**Noch offen:** Wer/was wählt die konkrete Bewegungsrichtung (den Tabellen-Index für das
+Delta) aus? Das wäre die eigentliche Quelle der wahrgenommenen Zufälligkeit beim Kampf
+(Monster bewegt sich mal Richtung Spieler, mal weg) — aber das Zurückverfolgen bis dahin
+reicht in die generische Entity-Bewegungs-/Kollisions-Engine hinein, die über mehrere
+Strukturen/Tabellen hinweg verteilt ist. Das ist ein eigenständiges, deutlich größeres
+Teilprojekt (im Prinzip die komplette Monster-KI/Pfadfindung), nicht mehr nur ein einzelner
+Funktionsfund.
+
 **Offen für die nächste Session:**
 - Monster-Kill-Zähler-Adresse finden (braucht echten Kill, nicht nur Treffer — im Test ist der
   Spieler gestorben, bevor das Monster besiegt wurde; Angriffsmechanik noch nicht verstanden,
