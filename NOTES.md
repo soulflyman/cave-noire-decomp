@@ -10,6 +10,12 @@
       unten.
 - [x] Spieler-Tod/Game-Over-Screen exploriert — siehe unten.
 - [ ] Code/Daten-Trennung (CDL) weiterhin zurückgestellt (bewusste Entscheidung, siehe unten).
+- [ ] Monster-Datentabelle (Task #6) — Zwischenstand, Kampf-Navigation blockiert.
+- [ ] Dungeon-Sonderfelder (Task #7) — Zwischenstand, $c149-Hypothese widerlegt.
+- [x] Basis-Stats-Tabelle gefunden (`BaseStatsByLevel`, bank_000.asm $31c8+) — siehe unten.
+- [ ] Quest-Ziel-Tabellen pro Level (Task #9).
+- [ ] Lucky-Stat/Trefferchance (Task #10).
+- [ ] Item-System (Task #11).
 
 ## Tooling (lokal im Projektordner)
 
@@ -552,3 +558,50 @@ den Tile-/Kollisions-Routinen der eigentlichen Spielschleife liegen (analog zu
 Bewegung), noch nicht lokalisiert. Benötigt vermutlich einen Savestate, der tatsächlich
 auf einer bröckelnden Kachel steht, um dynamisch zu verifizieren — in den aktuellen
 Savestates nicht vorhanden.
+
+## Basis-Stats-Tabelle GEFUNDEN (Task #8)
+
+**Rein statisch gefunden**, keine Emulation nötig. `Call_000_31ad` (bank_000.asm, $31ad,
+aufgerufen von $0884 im Quest-Start-Setup) initialisiert HP/Angriff/Verteidigung/Lucky
+beim Queststart:
+
+```
+ld a, [$c102]        ; $c102 = Level (1-basiert: 1-9, 10 = Level "M")
+add a                ; ×4 (4-Byte-Zeilen)
+add a
+ld hl, $31c8          ; Tabellenbasis MINUS 4 (siehe unten, Level ist 1-basiert)
+rst RST_28             ; hl += a  → hl zeigt auf die richtige Zeile für a>=4
+ld de, wPlayerHP       ; Ziel: $c120-$c123
+ld bc, $0004
+call Call_000_0442     ; generischer memcpy(de, hl, bc)
+ld a, [wPlayerHP]
+ld [wPlayerMaxHP], a   ; $c124 = Kopie der Start-HP als Max-HP
+```
+
+Neue Konstanten in `bank_000.asm`: `wPlayerAttack EQU $c121`, `wPlayerDefense EQU $c122`,
+`wPlayerLucky EQU $c123`, `wPlayerMaxHP EQU $c124`.
+
+**Tabelle `BaseStatsByLevel`** (ab ROM-Adresse `$31cc`, 4 Byte/Zeile = `[HP(BCD), Angriff,
+Verteidigung, Lucky]`, war vorher als Zufalls-Opcode-Müll fehldekodiert, jetzt als `db`-
+Zeilen eingetragen):
+
+| Level | HP | Angriff | Verteidigung | Lucky |
+|---|---|---|---|---|
+| 1-3 | 10 | 4 | 4 | 4 |
+| 4-6 | 11 | 4 | 4 | 5 |
+| 7-9 | 12 | 4 | 4 | 6 |
+| M | 13 | 5 | 6 | 7 |
+
+**Stimmt exakt mit der Wiki-Stats-Tabelle überein** (`temp/cave_noir_gameplay_strategywiki.md`).
+Pro Level-Gruppe stehen 3 identische Zeilen im ROM (je eine pro Level, nicht nur eine
+geteilte Zeile pro Gruppe) — z. B. Level 1, 2 und 3 haben jede ihre eigene (identische)
+4-Byte-Zeile bei `$31cc`/`$31d0`/`$31d4`.
+
+**Kurioser Implementierungsdetail:** Der Pointer in der Instruktion (`$31c8`) zeigt auf
+die letzten 3 Byte der eigenen Funktion (`call $5d07; ret`) — die "Zeile 0" würde also
+Code-Bytes lesen. Das ist unproblematisch, weil `$c102` nie `0` ist (Level ist 1-indiziert),
+der real genutzte Bereich beginnt erst bei Offset 4 (`$31cc`). Vermutlich vom Compiler/
+Assembler-Autor bewusst so gewählt (ein Byte "Tabellenkopf" gespart), nicht verifiziert.
+
+Rebuild nach Umbenennung/Kommentierung/`db`-Ersetzung bleibt bit-identisch
+(MD5 `10d92861e262069ce31559e12b927aa0`).

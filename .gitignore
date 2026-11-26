@@ -8,6 +8,7 @@ __pycache__/
 # Copyrighted ROMs - nicht ins Repo committen
 rom/*.gb
 rom/*.ips
+rom/*.gb.ram
 
 # Python venv und PyBoy-Explorationsartefakte
 .venv/

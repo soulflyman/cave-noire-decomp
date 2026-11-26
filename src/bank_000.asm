@@ -5,6 +5,10 @@
 
 ; --- Known WRAM symbols (identified via RAM watchpoints, see NOTES.md) ---
 DEF wPlayerHP EQU $c120 ; current player HP, BCD-encoded (1 byte)
+DEF wPlayerAttack EQU $c121 ; current player attack stat (1 byte)
+DEF wPlayerDefense EQU $c122 ; current player defense stat (1 byte)
+DEF wPlayerLucky EQU $c123 ; current player lucky stat (1 byte)
+DEF wPlayerMaxHP EQU $c124 ; max player HP, BCD-encoded (1 byte); copy of wPlayerHP at quest start
 DEF wCurrentFloor EQU $c104 ; current dungeon floor number (1 byte)
 
 SECTION "ROM Bank $000", ROM0[$0]
@@ -1807,7 +1811,7 @@ jr_000_07ee:
 
 
     call Call_000_0fcf                            ; $0881: $cd $cf $0f
-    call Call_000_31ad                            ; $0884: $cd $ad $31
+    call Call_000_31ad_InitPlayerStatsFromLevel   ; $0884: $cd $ad $31
     call $5d75                                    ; $0887: $cd $75 $5d
     jp Jump_000_0647                              ; $088a: $c3 $47 $06
 
@@ -9015,52 +9019,41 @@ Call_000_3181:
     ret                                           ; $31ac: $c9
 
 
-Call_000_31ad:
+; Initializes the player's base stats for a quest, indexed by level ($c102,
+; 0-8 for level 1-9, 9 for level M). Looks up a 4-byte row
+; [HP, Attack, Defense, Lucky] from BaseStatsByLevel below and copies it into
+; wPlayerHP/wPlayerAttack/wPlayerDefense/wPlayerLucky, then mirrors HP into
+; wPlayerMaxHP. Table values confirmed against strategywiki.org's published
+; stat table (level groups 1-3/4-6/7-9/M), see NOTES.md.
+Call_000_31ad_InitPlayerStatsFromLevel:
     ld a, [$c102]                                 ; $31ad: $fa $02 $c1
     add a                                         ; $31b0: $87
     add a                                         ; $31b1: $87
-    ld hl, $31c8                                  ; $31b2: $21 $c8 $31
+    ld hl, $31c8                                  ; $31b2: $21 $c8 $31 ($c102 is 1-based; BaseStatsByLevel-4, see below)
     rst RST_28                                    ; $31b5: $ef
-    ld de, $c120                                  ; $31b6: $11 $20 $c1
+    ld de, wPlayerHP                              ; $31b6: $11 $20 $c1
     ld bc, $0004                                  ; $31b9: $01 $04 $00
     call Call_000_0442                            ; $31bc: $cd $42 $04
-    ld a, [$c120]                                 ; $31bf: $fa $20 $c1
-    ld [$c124], a                                 ; $31c2: $ea $24 $c1
+    ld a, [wPlayerHP]                             ; $31bf: $fa $20 $c1
+    ld [wPlayerMaxHP], a                          ; $31c2: $ea $24 $c1
     call $5cec                                    ; $31c5: $cd $ec $5c
     call $5d07                                    ; $31c8: $cd $07 $5d
     ret                                           ; $31cb: $c9
 
 
-    db $10                                        ; $31cc: $10
-    inc b                                         ; $31cd: $04
-    inc b                                         ; $31ce: $04
-    inc b                                         ; $31cf: $04
-    db $10                                        ; $31d0: $10
-    inc b                                         ; $31d1: $04
-    inc b                                         ; $31d2: $04
-    inc b                                         ; $31d3: $04
-    db $10                                        ; $31d4: $10
-    inc b                                         ; $31d5: $04
-    inc b                                         ; $31d6: $04
-    inc b                                         ; $31d7: $04
-    ld de, $0404                                  ; $31d8: $11 $04 $04
-    dec b                                         ; $31db: $05
-    ld de, $0404                                  ; $31dc: $11 $04 $04
-    dec b                                         ; $31df: $05
-    ld de, $0404                                  ; $31e0: $11 $04 $04
-    dec b                                         ; $31e3: $05
-    ld [de], a                                    ; $31e4: $12
-    inc b                                         ; $31e5: $04
-    inc b                                         ; $31e6: $04
-    ld b, $12                                     ; $31e7: $06 $12
-    inc b                                         ; $31e9: $04
-    inc b                                         ; $31ea: $04
-    ld b, $12                                     ; $31eb: $06 $12
-    inc b                                         ; $31ed: $04
-    inc b                                         ; $31ee: $04
-    ld b, $13                                     ; $31ef: $06 $13
-    dec b                                         ; $31f1: $05
-    ld b, $07                                     ; $31f2: $06 $07
+; [HP (BCD), Attack, Defense, Lucky] per level; 3 identical rows per level
+; group (1-3/4-6/7-9), 1 row for level M.
+BaseStatsByLevel:
+    db $10, $04, $04, $04                         ; $31cc: level 1
+    db $10, $04, $04, $04                         ; $31d0: level 2
+    db $10, $04, $04, $04                         ; $31d4: level 3
+    db $11, $04, $04, $05                         ; $31d8: level 4
+    db $11, $04, $04, $05                         ; $31dc: level 5
+    db $11, $04, $04, $05                         ; $31e0: level 6
+    db $12, $04, $04, $06                         ; $31e4: level 7
+    db $12, $04, $04, $06                         ; $31e8: level 8
+    db $12, $04, $04, $06                         ; $31ec: level 9
+    db $13, $05, $06, $07                         ; $31f0: level M
 
 Call_000_31f4:
     call Call_000_320d                            ; $31f4: $cd $0d $32
