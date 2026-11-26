@@ -411,3 +411,28 @@ Treppen "von Anfang an frei zugänglich" sein. Nach jetzt sehr gründlicher Kart
 A-Test an praktisch jedem Feld hat dieser spezielle Raum trotzdem keine gefunden — bleibt
 als Anomalie offen (evtl. quest-typ-spezifisch, evtl. Dungeon-Generierungs-Sonderfall für
 "Level 1"). Nicht weiter verfolgt, da die Methode am Gold-Dungeon erfolgreich war.
+
+## Geheimgänge im Monster-Quest-Testraum — gesucht, nicht gefunden
+
+Nach User-Hinweis: Geheime Wände zeigen eine "?"-Sprechblase, wenn man direkt davor/
+diagonal danebensteht, und öffnen sich durch wiederholtes Hineinlaufen (kein A nötig).
+
+**Durchgeführte Suche** (im vollständig kartierten Monster-Quest-Raum, 29 Felder):
+1. Visuell an allen 4 Raumecken (`(1,1)`,`(8,1)`,`(1,6)`,`(8,6)`) geprüft — kein "?" sichtbar.
+2. Programmatischer OAM-Scan an jedem der 29 Felder × jeder *tatsächlich* blockierten
+   Richtung (Positionsvergleich vor Prüfung, um Fehlalarme durch unentdeckte-aber-begehbare
+   Kanten auszuschließen): Suche nach unbekannten Sprite-Tile-IDs → 0 Treffer.
+3. Zweiter Versuch mit Sprite-**Anzahl**-Vergleich (statt Tile-ID) vor/nach Anstoßen: 5
+   Treffer, aber alle Screenshot-verifiziert als **Fehlalarm durch das zufällig
+   danebenstehende Monster** (dessen eigene OAM-Sprites die Zählung verfälschen), keine
+   echte Geheimgang-Markierung.
+
+**Ergebnis:** In diesem spezifischen Raum wurde kein Geheimgang gefunden. Entweder hat
+dieser Raum tatsächlich keinen (konsistent mit der bereits dokumentierten Treppen-Anomalie
+für denselben Raum), oder die Markierung sitzt an einer Stelle außerhalb der 29 kartierten
+Felder (z. B. direkt neben der zentralen Plattform, die wir nur von 4 Außenseiten, nicht
+diagonal, geprüft haben).
+
+**Hinweis für nächstes Mal:** Die Plattform-Struktur (`$c5c0`-Bereich, siehe Monster-KI-
+Abschnitt) selbst nie auf Geheimgang-Interaktion getestet — nur als massive Wand
+behandelt. Könnte selbst der Ort eines "Fake Pit" oder einer versteckten Interaktion sein.
