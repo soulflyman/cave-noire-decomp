@@ -68,7 +68,29 @@ gespeichert (`HP=10` → Byte `$10`, nicht `$0A`). Gefunden über einen Hybrid-A
 definiert und an den Call-Sites verwendet. Rebuild bleibt bit-identisch (MD5
 `10d92861e262069ce31559e12b927aa0`).
 
-**Vermutung für weitere Stats:** Gold, Level, Etagen-Tiefe etc. werden wahrscheinlich nach
-demselben Muster über `Call_000_0e83_BcdToTiles` angezeigt — andere Quelladressen,
-gleiche Tile-Konvertierung. Lohnt sich, alle `call Call_000_0e83_BcdToTiles`-Stellen
-durchzugehen und deren `de`-Quelladresse zu prüfen, um weitere WRAM-Variablen zu identifizieren.
+**Weitere Stats (Gold, Monster-Zähler, Etage) — NICHT über dieselbe Routine:**
+
+Alle statischen `call`/`jp`-Stellen zu `Call_000_0e83_BcdToTiles` wurden geprüft (6 Stellen,
+alle in bank_000.asm). Nur eine davon (`Call_000_2b1e_ConvertPlayerHPToTiles`, HP) wird beim
+tatsächlichen Spielen je ausgeführt. Verifiziert per PyBoy-Hook (`hook_register` auf Bank 0,
+`$0e83`) über den gesamten Boot→Dungeon→Kampf-Ablauf: nur `de=$c120` (HP) feuert.
+
+Ein anderer vermeintlicher Aufrufer, `Call_000_0ec9` (bank_000.asm, liest `$c104`, schreibt
+nach VRAM `$98e9` mit Tile-Basis `$10` statt `$9e`), **feuert nie** — weder er noch seine
+Caller-Kette (`Call_000_08dc`) wurden je per Hook getroffen. Klassisches Symptom von
+Disassembly ohne Code/Daten-Trennung: mgbdis hat dort plausibel aussehenden, aber in
+Wirklichkeit nie erreichten "Code" erzeugt (vermutlich echte Grafik-/Tabellendaten).
+**Lektion:** Call-Sites im rohen mgbdis-Output nicht blind vertrauen — immer per Hook
+dynamisch verifizieren, dass der Code tatsächlich erreicht wird, bevor man ihn analysiert.
+
+→ "モンスター n/ N" (Monster-Kill-Zähler) und die Etagenanzeige "B 1F" nutzen demnach eine
+andere, noch nicht gefundene Zeichenroutine (vermutlich einfachere Einzelziffer-Darstellung
+ohne den generischen BCD-Konverter, da es sich um einstellige Werte handelt).
+
+**Offen für die nächste Session:**
+- Monster-Kill-Zähler-Adresse finden (braucht echten Kill, nicht nur Treffer — im Test ist der
+  Spieler gestorben, bevor das Monster besiegt wurde; Angriffsmechanik noch nicht verstanden,
+  bisheriges "in Monster hineinlaufen" verursacht nur gegenseitigen Schaden, aber keinen Kill
+  in der getesteten Zeit).
+- Gold-Zähler und Etagentiefe ("B 1F") noch nicht lokalisiert.
+- Spieler-Tod-Verhalten (Game-Over-Screen) noch nicht exploriert.
