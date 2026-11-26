@@ -251,3 +251,11 @@ row16/17, col16 bzw. col19 — grep nach `$9a90`/`$9a91`-artigen Adressen bringt
 bei einem anderen Quest-Typ, oder durch Abschluss des Missionsziels wird die Treppe
 freigeschaltet) und dort die VRAM/OAM-Diff-Methode anwenden — dieselbe Technik, die bei HP
 und Gold funktioniert hat, braucht nur ein echtes Vorher/Nachher-Ereignis.
+
+**User-Hinweis (Edward):** Laut seinem Wissen muss man für den Etagenwechsel nur "die
+Treppe finden und begehen" — kein Freischalten durch Missionsziel nötig. Die kreisförmige
+Plattform in `dungeon.state` ist demnach wahrscheinlich NICHT die Treppe, sondern
+tatsächlich nur Deko — die echte Treppe muss anderswo im (bisher nicht vollständig
+erkundeten) Raum oder in einem angrenzenden Raum liegen. Nächstes Mal: Raum vollständiger
+abgehen (wir hatten nur die Top-Wand als Grenze bestätigt, nicht alle 4 Seiten/Ecken) statt
+anzunehmen, die Plattform sei die Treppe.
