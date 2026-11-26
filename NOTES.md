@@ -469,3 +469,86 @@ diagonal, geprüft haben).
 **Hinweis für nächstes Mal:** Die Plattform-Struktur (`$c5c0`-Bereich, siehe Monster-KI-
 Abschnitt) selbst nie auf Geheimgang-Interaktion getestet — nur als massive Wand
 behandelt. Könnte selbst der Ort eines "Fake Pit" oder einer versteckten Interaktion sein.
+
+## Neue Aufgaben aus externen Wiki-Infos (strategywiki.org, siehe `temp/`)
+
+Nutzer hat drei Wiki-Seiten (Gameplay, Monster-Liste, Walkthrough) bereitgestellt
+(`temp/cave_noir_*_strategywiki.md`). Daraus abgeleitete, priorisierte Aufgabenliste
+(Tasks #6-#11 im Task-Tracker): Monster-Tabelle → Dungeon-Sonderfelder → Basis-Stats →
+Quest-Ziel-Tabellen → Lucky-Stat → Item-System.
+
+## Monster-Struct-Layout — Zwischenstand (Task #6, noch nicht abgeschlossen)
+
+**Bestätigt (statische Analyse + Vergleich über 4 verschiedene Savestates/Dungeons):**
+
+- Monster-Array liegt bei `$c5c0`-`$c800`, **16 Byte pro Eintrag, bis zu 36 Slots**
+  (`$24` × `$10`), bestätigt über die periodische Update-Schleife `Call_001_4946`/
+  `Call_001_4960` (bank_001.asm, feuert alle 16 Ticks über `$c23b and $0f`) und die
+  Reset-Schleife `Call_001_4b57`/`Call_001_4b95` (je `ld hl,$c5c0; ld b,$24; ld de,$0010`).
+- **Offset `$00`**: Slot-Belegungs-Flag — `or a; ret z` beendet die Verarbeitung sofort,
+  wenn hier `0` steht (leerer Slot). In allen 4 getesteten Savestates `6` (gleicher
+  Monstertyp in jedem Test-Dungeon).
+- **Offset `$01`**: Monstertyp-ID — wird direkt gegen `$c420` (aktuell verarbeiteter Typ
+  in der Zug-Dispatch-Schleife) verglichen (`cp c` mit `c = [$c420]`, siehe
+  `Call_001_4b7e`/`Call_001_4bb5`). In allen 4 Tests `1`.
+- **Offset `$02`/`$03`**: Positions-Tile (Reihe/Spalte) — per OAM-Sprite-Abgleich
+  verifiziert (Sprite-Pixel-Position / 16 == Struct-Wert). Welches der beiden Reihe vs.
+  Spalte ist, ist noch nicht hundertprozentig zugeordnet (Bewegungsmuster des Test-
+  Monstertyps deutete auf Spalten-Bewegung, siehe unten).
+- **Offset `$04`**: **Kein Positions-/Kampf-Feld, sondern ein reiner Blink-/Animations-
+  Toggle**: `Call_001_4960` XOR-t Offset `$04` mit Offset `$05` alle 16 Ticks
+  (`ld a,[hl+]` über Offsets 1-3, dann `inc l` ×3 auf Offset 4, `xor [hl]` mit Offset 5,
+  zurückschreiben). Oszilliert deshalb sichtbar zwischen `0`/`2`, hat aber nichts mit der
+  RNG/Trefferchance-Mechanik zu tun (Verwechslungsgefahr mit Offset `$0f`, das denselben
+  0/2-Oszillationsmuster zeigt, aber tatsächlich der dokumentierte Richtungs-/RNG-Zähler ist).
+- **Offsets `$05`-`$09`**: In allen 4 Tests identisch (`2,5,4,2,5`) trotz unterschiedlicher
+  Dungeons/Etagen/Quests — vermutlich statische Typ-Attribute (Schaden, evtl. Angriff/
+  Verteidigung/Lucky-ähnliche Werte), die beim Spawn aus einer ROM-Tabelle in den Slot
+  kopiert werden (passend zur bekannten `Call_001_518a`-Generic-Lookup-Funktion:
+  `ld a,[$c102]; rst RST_28; ld a,[hl]; ret`, die an mehreren Stellen in genau so eine
+  Tabelle indexiert, u. a. für den Schadenswert `$c529`).
+- **Offset `$0f`**: bereits dokumentiert (Zufalls-Mechanismus GELÖST oben) — 2-3-Bit
+  Richtungs-/Zustandsfeld, zugleich Pseudo-Zufallsquelle.
+
+**Noch offen:**
+- Welches Offset die **aktuelle/maximale Monster-HP** trägt, ist noch nicht zweifelsfrei
+  bestätigt (Kandidaten: `$06`=5 oder `$09`=5, beide passen zu keinem Wiki-HP-Wert exakt,
+  könnte aber bereits eine reduzierte "aktuelle HP" nach Testschäden aus der vorherigen
+  Session sein). Dynamischer Test (Spieler bis zum Monster navigieren und wiederholt
+  angreifen, Offset-Diff beobachten) ist in diesem Savestate an Navigationsproblemen
+  gescheitert (Spieler/Monster blieben in diesem Testraum in einer kleinen Ecke
+  gefangen, nie wirklich benachbart — eventuell dieselbe Raum-Anomalie wie bei der
+  Treppen-/Geheimgang-Suche).
+- Die ROM-Tabelle, die Offsets `$05`-`$09` beim Spawn befüllt (ausgehend vom Monstertyp),
+  wurde noch nicht lokalisiert — nötig, um die 23 Wiki-Monster den internen Typ-IDs
+  zuzuordnen.
+
+**Nächster sinnvoller Schritt:** Entweder (a) einen Savestate mit freierem Zugang zum
+Monster verwenden (z. B. Gold-Dungeon, wo die Navigation bereits erfolgreich war), oder
+(b) statisch weiter rückwärts von `Call_001_518a`s Aufrufstellen zur Spawn-Routine
+verfolgen, um die Tabellenadresse direkt zu finden statt per Kampftest.
+
+**Update:** Variante (a) im Gold-Dungeon-Savestate erneut versucht (naive 8er-Zyklus-
+Bewegung) — Spieler bleibt wieder in einer kleinen Ecke gefangen (Reihen 2-4), erreicht
+die Monster-Reihe (6) nie; das Monster selbst bestätigt dabei sauber "bewegt sich links/
+rechts auf fester Reihe" (Offset `$02`=Reihe bleibt `6`, Offset `$03`=Spalte oszilliert
+2-8) — passt zum Wiki-Bewegungsmuster "Crab: moves left and right". Für einen echten
+Kampftest wird die bereits erprobte BFS/Kollisions-Methode aus der Etagentiefe-Suche
+benötigt (position-delta-basierte Wanderung statt naiver Richtungszyklen) — in dieser
+Sitzung nicht mehr umgesetzt, offen für nächstes Mal.
+
+## Dungeon-Sonderfelder (Task #7) — Zwischenstand: $c149 ist NICHT der Bodenbruch-Timer
+
+Hypothese aus der Game-Over-Recherche (dass der dritte `TriggerGameOver`-Aufrufpfad bei
+`$0d4c` über einen Bodenbruch-Countdown läuft) **widerlegt**: `$c149` wird an mindestens
+8 verschiedenen Stellen in bank_000.asm gesetzt/gelesen (`$0bd6`,`$0c2c`,`$0c8a`,`$0cc6`,
+`$0d0f`,`$0d20`,`$0d48`,`$0d6c`,`$0daa`), jede davon im Kontext eines *anderen*
+`$c100`-Hauptzustands (z. B. `$0c2c` direkt im Game-Over-Trigger selbst, `$0bd6` in einem
+Übergangsscreen mit Sound-Setup). **`$c149` ist ein generischer "warte N Frames, dann
+Zustand X"-Timer, der von vielen Spielzuständen wiederverwendet wird** — keine
+Tile-/Bodenbruch-spezifische Variable. Die "!!"-Bodenbruch-Mechanik muss stattdessen in
+den Tile-/Kollisions-Routinen der eigentlichen Spielschleife liegen (analog zu
+`Call_000_2eee`/`Call_000_2f25`, den bekannten Tile-Lookup-Routinen aus der Monster-
+Bewegung), noch nicht lokalisiert. Benötigt vermutlich einen Savestate, der tatsächlich
+auf einer bröckelnden Kachel steht, um dynamisch zu verifizieren — in den aktuellen
+Savestates nicht vorhanden.
