@@ -664,6 +664,37 @@ angrenzendes Feld mit passendem Tile-Typ suchen müssen. Nicht einzeln verifizie
 Keine Code-Änderungen (reine Dokumentation, Erkenntnisse basieren auf bereits vorhandenem
 Disassembly-Text ohne neue `db`-Konvertierungen). Kein Rebuild nötig.
 
+## Dunkelheit/Fackel-Mechanik — Grafik-Suche (kein Treffer, Ansatz dokumentiert)
+
+User lieferte einen Referenz-Screenshot (`temp/cave-noire-game-boy-45-2254664308.png`,
+Quest B, Etage 4F): ein unregelmäßiges, dichtes Punktmuster verdunkelt einen Teil des Raums,
+ein Gegner ist darin nur als weißes Augenpaar ("Ⓥ"-Form) sichtbar — passt exakt zur Wiki-
+Beschreibung ("Monsters can still be seen as eyes [...] until they move out of the darkness").
+Laut User tritt die Dunkelheit **erst auf tieferen Etagen** auf.
+
+**Versuchte Methode:** Die VRAM-Tile-Grafiken aus `gold_dungeon.state` (Etage 1, Quest Gold)
+wurden komplett ausgelesen und gerendert (PyBoy, manueller 2bpp-Decoder über `mem[0x8000+id*16]`
+— `pyboy.get_tile()`/`Tile.image()` liefert in dieser PyBoy-Version nur schwarze Bilder,
+vermutlich ein Palette/BGP-Bug in der installierten Version, daher direkter VRAM-Zugriff als
+Workaround). Alle 384 Hintergrund-Kacheln wurden nach "Dither-/Schachbrettmuster-Ähnlichkeit"
+sortiert (Nachbar-Pixel-Vergleich horizontal/vertikal) — die Top-Treffer waren ausschließlich
+Kana-Schriftzeichen mit zufällig ähnlichem Strichmuster, **kein** echtes Dither-/Noise-Tile
+und **keine** Augenpaar-Grafik gefunden.
+
+**Schlussfolgerung:** Die Dunkelheits-Grafiken (Dither-Tile + Augenpaar-Sprite) sind in den
+aktuell verfügbaren Savestates (alle auf Etage 1, keine Dunkelheit) schlicht **nicht in VRAM
+geladen** — konsistent mit der User-Aussage, dass die Mechanik erst auf tieferen Etagen
+greift. Um die Grafiken und den zugehörigen Rendering-Code zu finden, würde ein Savestate von
+einer tatsächlich dunklen Etage benötigt (mehrere Etagen tief in einer laufenden Quest, mit
+funktionierender Navigation erreichbar, aber in dieser Sitzung nicht mehr umgesetzt).
+**Für eine Folge-Session:** Entweder (a) einen Spielstand tief genug navigieren und denselben
+VRAM-Dump-Ansatz wiederholen, oder (b) weiter statisch nach der "Raum aus Dungeon-Layout
+zeichnen"-Funktion suchen und prüfen, ob sie eine Sichtradius-/Entfernungsprüfung enthält
+(wahrscheinlicherer Fund-Ansatz, da unabhängig vom Spielfortschritt).
+
+Keine Code-Änderungen, keine neuen Asset-Dateien committed (Scratch-Skripte und -Renderings
+bleiben im gitignored `scratch/`-Verzeichnis).
+
 ## Basis-Stats-Tabelle GEFUNDEN (Task #8)
 
 **Rein statisch gefunden**, keine Emulation nötig. `Call_000_31ad` (bank_000.asm, $31ad,
