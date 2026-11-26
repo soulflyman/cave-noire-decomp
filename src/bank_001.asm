@@ -10287,6 +10287,16 @@ Call_001_79a9:
     xor [hl]                                      ; $79c4: $ae
     ld c, b                                       ; $79c5: $48
 
+; Taken when it's NOT this monster's turn to act (its type != currently
+; processed type in $c420). Monster struct offset $0f is a state/direction
+; counter: it just gets bumped by 1 here every time this monster is skipped.
+; There is no dedicated PRNG/dice-roll function in this game found so far -
+; this free-running per-monster counter (incremented at an irregular rate
+; depending on how many other monster types get processed per turn) is
+; masked to 2-3 bits elsewhere (see Jump_001_7a9b/Jump_001_7a71) and used as
+; a jump-table index (via Jump_000_0433_RstJumpTableTrampoline) to pick this
+; monster's wander direction - a cheap de-facto pseudo-random source instead
+; of a real RNG.
 Jump_001_79c6:
     xor a                                         ; $79c6: $af
     ld [$c238], a                                 ; $79c7: $ea $38 $c2

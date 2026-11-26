@@ -9,7 +9,7 @@ DEF wPlayerHP EQU $c120 ; current player HP, BCD-encoded (1 byte)
 SECTION "ROM Bank $000", ROM0[$0]
 
 RST_00::
-    jp Jump_000_0433                              ; $0000: $c3 $33 $04
+    jp Jump_000_0433_RstJumpTableTrampoline                              ; $0000: $c3 $33 $04
 
 
     cpl                                           ; $0003: $2f
@@ -990,7 +990,12 @@ Call_000_042a:
     ret                                           ; $0432: $c9
 
 
-Jump_000_0433:
+; RST_00 handler: inline jump table trampoline. Caller does `rst RST_00` with
+; `a` = table index; the 2-byte-per-entry table lives immediately after the
+; `rst RST_00` opcode in the instruction stream (hence looks like garbage data
+; when disassembled linearly without a CDL). Pops the return address (-> table
+; base), hl += 2*a (RST_28), reads table[a] via RST_08, jumps there.
+Jump_000_0433_RstJumpTableTrampoline:
     ld e, l                                       ; $0433: $5d
     ld d, h                                       ; $0434: $54
     pop hl                                        ; $0435: $e1

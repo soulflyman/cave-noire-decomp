@@ -2,8 +2,7 @@
 
 ## TODO / Offene Punkte (damit nichts verloren geht)
 
-- [ ] **In Arbeit:** Monster-KI / Bewegungsrichtung finden (vermutliche Quelle der
-      wahrgenommenen Zufälligkeit im Kampf). Siehe "Zufalls-/Trefferchancen-Suche" unten.
+- [x] Monster-KI / "Zufalls"-Mechanismus gefunden — siehe "Zufalls-Mechanismus GELÖST" unten.
 - [ ] Gold-Zähler-Adresse finden (noch nicht mal mit Suche begonnen).
 - [ ] Monster-Kill-Zähler ("モンスター n/N") finden — braucht einen tatsächlichen Kill,
       nicht nur Treffer (Spieler ist im Test gestorben, bevor ein Monster besiegt wurde).
@@ -151,12 +150,40 @@ aktuelle Position (`$c225`/`$c226`). Von dort rückwärts verfolgt zu `Call_000_
 `Call_000_2f25` (bank_000.asm) — das sind Kollisions-/Tile-Lookup-Routinen (prüfen, ob das
 Zielfeld begehbar ist), ebenfalls kein sichtbarer Zufallszugriff.
 
-**Noch offen:** Wer/was wählt die konkrete Bewegungsrichtung (den Tabellen-Index für das
-Delta) aus? Das wäre die eigentliche Quelle der wahrgenommenen Zufälligkeit beim Kampf
-(Monster bewegt sich mal Richtung Spieler, mal weg) — aber das Zurückverfolgen bis dahin
-reicht in die generische Entity-Bewegungs-/Kollisions-Engine hinein, die über mehrere
-Strukturen/Tabellen hinweg verteilt ist. Das ist ein eigenständiges, deutlich größeres
-Teilprojekt (im Prinzip die komplette Monster-KI/Pfadfindung), nicht mehr nur ein einzelner
-Funktionsfund.
+## Zufalls-Mechanismus GELÖST: Es gibt keine dedizierte RNG-Funktion
+
+**Kernbefund:** Cave Noire hat (soweit gefunden) **keinen klassischen Zufallszahlengenerator**
+(kein LFSR, kein rDIV-Read). Stattdessen missbraucht das Spiel einen harmlosen Nebeneffekt
+der Spielschleife als "gut genug"-Zufallsquelle:
+
+1. **`RST_00` ist ein zweites Sprungtabellen-Trampolin** (wie `RST_28`, aber für Jumps statt
+   Adressarithmetik) — bestätigt am Handler `Jump_000_0433_RstJumpTableTrampoline`
+   (bank_000.asm, $0433): `a` = Tabellenindex, die 2-Byte-pro-Eintrag-Tabelle liegt direkt
+   im Bytestrom nach dem `rst RST_00`-Opcode (daher sieht sie ohne CDL wie zufälliger
+   Code-Müll aus — klassisches mgbdis-Fehldekodierungs-Muster, diesmal aber als Hinweis
+   genutzt statt als Sackgasse).
+2. Jeder Monster-Datensatz (16 Byte, Basis `$c5c0 + 16×Index`) hat bei Offset `$0f` ein
+   **2-3-Bit-Zustands-/Richtungsfeld**. Dieses Feld wird per `and $03`/`and $07` +
+   `rst RST_00` als Index in eine 4er-Sprungtabelle benutzt, die auf die vier
+   Kardinalrichtungs-Bewegungsfunktionen zeigt (`Call_001_45e8` runter, `Call_001_45ef`
+   hoch, `Call_001_45f6`/`Call_001_45fd` links/rechts) bzw. im "Standardfall"
+   (`Jump_001_7a71`/`Jump_001_7a9b`) auf die "Bewegung bestätigen"-Einstiegspunkte
+   (`Jump_001_45b0/be/cc/da`).
+3. **Die eigentliche Pseudo-Zufälligkeit:** In `Jump_001_79c6` (bank_001.asm, $79c6) wird
+   dieses Feld per `inc [hl]` hochgezählt — und zwar **jedes Mal, wenn gerade NICHT dieser
+   Monstertyp an der Reihe ist** (Vergleich mit `$c420`, dem aktuell verarbeiteten
+   Monstertyp). Da die Spielschleife pro Zug mehrere Monstertypen nacheinander abklappert,
+   läuft dieser Zähler mit einer für den Spieler nicht vorhersehbaren Taktung hoch — seine
+   unteren Bits wirken dadurch wie ein Würfelwurf, obwohl es nur ein stupider Fortlauf-
+   Zähler ist.
+
+Damit ist auch die bei "Angriffsmechanik" offene Frage beantwortet: Es gibt keinen
+Trefferwurf. Der Schaden ist fix (Tabellenwert pro Monstertyp), und ob ein Monster
+überhaupt angreifen kann, hängt rein von Position (ausgerichtet auf Spielerreihe/-spalte,
+siehe deterministische "Angriffs-Ausrichtung" oben) und diesem pseudo-zufälligen
+Bewegungszähler ab (bestimmt, ob/wohin es sich stattdessen bewegt).
+
+Umbenannt/kommentiert: `Jump_000_0433_RstJumpTableTrampoline` (bank_000.asm),
+`Jump_001_79c6` (Kommentar, bank_001.asm). Rebuild bleibt bit-identisch.
 
 (Offene Punkte: siehe TODO-Liste ganz oben in diesem Dokument.)
