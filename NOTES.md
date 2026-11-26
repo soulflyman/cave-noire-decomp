@@ -287,3 +287,45 @@ nicht direkt im Schadenscode selbst. Noch nicht gefunden, wo genau.
 
 Gespeicherter State: `scratch/states/death.state` (Frame des Todes),
 `scratch/states/gameover.state` (fertiger Game-Over-Screen).
+
+## Etagentiefe — Update: Methodik "speicherbasierter Explorer" gebaut
+
+**Spielerposition im RAM gefunden** (per OAM-Regression, gleiche Methode wie bei Monster-
+Position): `$c503` = aktuelle Y-Kachel, `$c504` = aktuelle X-Kachel (Faktor 16 = Pixel,
+keine Offsets). Bestätigt exakt gegen OAM-Sprite-Position.
+
+**Echtes Teleportieren (direktes Schreiben von `$c503`/`$c504`) funktioniert NICHT** — ein
+Raster-Scan über alle plausiblen Werte ergab fast nirgends gültige Bewegung danach. Das
+sind vermutlich nur Render-Cache-Werte für die OAM-Darstellung, nicht die kollisions-
+maßgebliche interne Position (die vermutlich in Pixel-Subauflösung oder einer anderen
+Struktur liegt, nicht weiter verfolgt).
+
+**Stattdessen: bildschirmfreier Explorer per Tastendruck + Positionsvergleich.** Kollision
+wird rein durch "Position vor/nach Tastendruck gleich? → blockiert" erkannt, ganz ohne
+Screenshot-Interpretation. Wichtige Lektion dabei: Die deterministische Monster-
+Verfolgungs-KI (siehe "Zufalls-Mechanismus GELÖST") zielt aktiv auf die Spielerposition —
+bei repetitivem Testen am selben Ort "campt" das Monster dort und täuscht Wände vor, die
+keine sind. Lösung: `$c120` (HP) künstlich auf `0x99` setzen (Unverwundbarkeit während der
+Exploration) plus DFS statt BFS (weniger Rückkehr zum selben Feld, weniger Chancen für die
+KI, sich dort festzusetzen).
+
+**Ergebnis für Quest 1 (Monster-Kill), Level 1:** Nach mehreren DFS-Läufen mit
+unterschiedlicher Richtungspriorität (um Sackgassen-Bias zu vermeiden) wurde der gesamte
+erreichbare Bereich kartiert — alle Randfelder sind an allen 4 Seiten blockiert, **keine
+Treppe gefunden**. Kartierte Fläche (x=1-8, y=1-6, `#`=bestätigt begehbar):
+```
+#.......
+########
+..#....#
+####...#
+########
+#......#
+```
+Der Lückenbereich bei x=6-7,y=3-4 entspricht der kreisförmigen Plattform (3x3-Struktur,
+massiv, kein Zugang).
+
+**Schlussfolgerung:** Dieser spezifische Dungeon (Monster-Kill-Quest Lvl 1) hat vermutlich
+**keine Treppe/Etagenübergang** — passt zu einem einfachen "töte 3 Monster"-Ziel ohne
+Tiefenfortschritt. Mögliche nächste Schritte: (a) Missionsziel abschließen und prüfen, ob
+danach eine Treppe erscheint, (b) einen anderen Quest-Typ (Gold/Schwert/Orb) auf
+Etagenübergänge testen, da diese ggf. mehrstöckig sind.
