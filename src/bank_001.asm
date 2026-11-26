@@ -279,7 +279,7 @@ jr_001_4188:
     ret nz                                        ; $419e: $c0
 
     ld a, [$c514]                                 ; $419f: $fa $14 $c5
-    call Call_001_4ebc                            ; $41a2: $cd $bc $4e
+    call Call_001_4ebc_ConsumeInventoryItem                            ; $41a2: $cd $bc $4e
     jr jr_001_4135                                ; $41a5: $18 $8e
 
 jr_001_41a7:
@@ -571,7 +571,7 @@ jr_001_433e:
     ret nz                                        ; $4365: $c0
 
     ld a, [$c514]                                 ; $4366: $fa $14 $c5
-    call Call_001_4ebc                            ; $4369: $cd $bc $4e
+    call Call_001_4ebc_ConsumeInventoryItem                            ; $4369: $cd $bc $4e
     ld e, $01                                     ; $436c: $1e $01
     ld a, [$c16f]                                 ; $436e: $fa $6f $c1
     ld c, a                                       ; $4371: $4f
@@ -763,7 +763,7 @@ jr_001_447e:
 
 jr_001_44a1:
     ld a, [$c514]                                 ; $44a1: $fa $14 $c5
-    call Call_001_4ebc                            ; $44a4: $cd $bc $4e
+    call Call_001_4ebc_ConsumeInventoryItem                            ; $44a4: $cd $bc $4e
     jp Jump_001_4135                              ; $44a7: $c3 $35 $41
 
 
@@ -2475,8 +2475,8 @@ jr_001_4db9:
     call Call_000_1ac7                            ; $4de0: $cd $c7 $1a
     call Call_000_38c5                            ; $4de3: $cd $c5 $38
     call Call_000_38fd                            ; $4de6: $cd $fd $38
-    call Call_001_4e7a                            ; $4de9: $cd $7a $4e
-    call Call_001_4e5a                            ; $4dec: $cd $5a $4e
+    call Call_001_4e7a_CompactInventory                            ; $4de9: $cd $7a $4e
+    call Call_001_4e5a_CountInventoryItems                            ; $4dec: $cd $5a $4e
     ld a, c                                       ; $4def: $79
     or a                                          ; $4df0: $b7
     jr z, jr_001_4dfc                             ; $4df1: $28 $09
@@ -2555,7 +2555,14 @@ Call_001_4e2c:
     ld c, a                                       ; $4e58: $4f
     sbc c                                         ; $4e59: $99
 
-Call_001_4e5a:
+; --- Inventory system (wInventory = $c140, 8 slots x 1 byte item-type-ID, $00 = empty) ---
+; Item type IDs confirmed by this session's investigation (Task #11):
+;   $06        -> temp. attack-buff item ("Kougeki"?), magnitude/duration scaled by wPlayerLucky
+;   $07        -> Orb (counted here to drive the orb-quest progress counter wC16c, see NOTES.md)
+;   $12        -> "HP no Moto" (increases wPlayerMaxHP by 1, doesn't occupy an inventory slot)
+;   $18-$1b    -> swords (+1/+2/+3/+5 attack, see SwordAttackBonusByItemID at $510a)
+;   $1c-$1f    -> shields (+1/+2/+3/+5 defense, see ShieldDefenseBonusByItemID at $510e)
+Call_001_4e5a_CountInventoryItems:
     ld hl, $c140                                  ; $4e5a: $21 $40 $c1
     ld b, $08                                     ; $4e5d: $06 $08
     ld c, $00                                     ; $4e5f: $0e $00
@@ -2574,7 +2581,7 @@ jr_001_4e66:
     ret                                           ; $4e69: $c9
 
 
-Call_001_4e6a:
+Call_001_4e6a_CountInventoryItemsOfType:
     ld hl, $c140                                  ; $4e6a: $21 $40 $c1
     ld b, $08                                     ; $4e6d: $06 $08
     ld c, $00                                     ; $4e6f: $0e $00
@@ -2593,7 +2600,7 @@ jr_001_4e75:
     ret                                           ; $4e79: $c9
 
 
-Call_001_4e7a:
+Call_001_4e7a_CompactInventory:
     ld b, $08                                     ; $4e7a: $06 $08
     ld hl, $c140                                  ; $4e7c: $21 $40 $c1
     ld e, l                                       ; $4e7f: $5d
@@ -2620,7 +2627,7 @@ jr_001_4e8a:
     inc de                                        ; $4e90: $13
     jr jr_001_4e8a                                ; $4e91: $18 $f7
 
-Call_001_4e93:
+Call_001_4e93_FindInventoryItemOfType:
     ld b, $08                                     ; $4e93: $06 $08
     ld hl, $c140                                  ; $4e95: $21 $40 $c1
 
@@ -2636,12 +2643,12 @@ jr_001_4e98:
     ret                                           ; $4e9f: $c9
 
 
-Call_001_4ea0:
+Call_001_4ea0_FindAnySword:
     ld c, $1b                                     ; $4ea0: $0e $1b
 
 jr_001_4ea2:
     ld a, c                                       ; $4ea2: $79
-    call Call_001_4e93                            ; $4ea3: $cd $93 $4e
+    call Call_001_4e93_FindInventoryItemOfType                            ; $4ea3: $cd $93 $4e
     ret z                                         ; $4ea6: $c8
 
     dec c                                         ; $4ea7: $0d
@@ -2652,12 +2659,12 @@ jr_001_4ea2:
     ret                                           ; $4ead: $c9
 
 
-Call_001_4eae:
+Call_001_4eae_FindAnyShield:
     ld c, $1f                                     ; $4eae: $0e $1f
 
 jr_001_4eb0:
     ld a, c                                       ; $4eb0: $79
-    call Call_001_4e93                            ; $4eb1: $cd $93 $4e
+    call Call_001_4e93_FindInventoryItemOfType                            ; $4eb1: $cd $93 $4e
     ret z                                         ; $4eb4: $c8
 
     dec c                                         ; $4eb5: $0d
@@ -2668,11 +2675,11 @@ jr_001_4eb0:
     ret                                           ; $4ebb: $c9
 
 
-Call_001_4ebc:
+Call_001_4ebc_ConsumeInventoryItem:
     or a                                          ; $4ebc: $b7
     ret z                                         ; $4ebd: $c8
 
-    call Call_001_4e93                            ; $4ebe: $cd $93 $4e
+    call Call_001_4e93_FindInventoryItemOfType                            ; $4ebe: $cd $93 $4e
     ret nz                                        ; $4ec1: $c0
 
     xor a                                         ; $4ec2: $af
@@ -2996,7 +3003,7 @@ jr_001_509f:
 
 Call_001_50a2:
     ld a, $07                                     ; $50a2: $3e $07
-    call Call_001_4e6a                            ; $50a4: $cd $6a $4e
+    call Call_001_4e6a_CountInventoryItemsOfType                            ; $50a4: $cd $6a $4e
     ld a, c                                       ; $50a7: $79
     ld [$c16c], a                                 ; $50a8: $ea $6c $c1
     ret                                           ; $50ab: $c9
@@ -3023,7 +3030,7 @@ Call_001_50a2:
     jp z, Jump_001_5307                           ; $50cd: $ca $07 $53
 
     ld a, $07                                     ; $50d0: $3e $07
-    call Call_001_4e6a                            ; $50d2: $cd $6a $4e
+    call Call_001_4e6a_CountInventoryItemsOfType                            ; $50d2: $cd $6a $4e
     ld a, c                                       ; $50d5: $79
     ld [$c16c], a                                 ; $50d6: $ea $6c $c1
     call Call_000_30c5                            ; $50d9: $cd $c5 $30
@@ -3060,10 +3067,12 @@ Call_001_5102:
     ret                                           ; $5109: $c9
 
 
-    ld bc, $0302                                  ; $510a: $01 $02 $03
-    dec b                                         ; $510d: $05
-    ld bc, $0302                                  ; $510e: $01 $02 $03
-    dec b                                         ; $5111: $05
+; Stat-bonus-per-item-ID tables for swords/shields (indexed via RST_28, hl+=a,
+; see Call_001_527b/Call_001_52be). Matches wiki bonuses +1/+2/+3/+5 exactly.
+SwordAttackBonusByItemID: ; item ID $18-$1b
+    db $01, $02, $03, $05                         ; $510a
+ShieldDefenseBonusByItemID: ; item ID $1c-$1f
+    db $01, $02, $03, $05                         ; $510e
 
 Call_001_5112:
     ld hl, $5125                                  ; $5112: $21 $25 $51
@@ -3318,7 +3327,7 @@ Jump_001_5261:
 
 
 Call_001_527b:
-    call Call_001_4ea0                            ; $527b: $cd $a0 $4e
+    call Call_001_4ea0_FindAnySword                            ; $527b: $cd $a0 $4e
     ld a, $00                                     ; $527e: $3e $00
     ret c                                         ; $5280: $d8
 
@@ -3356,7 +3365,7 @@ Jump_001_52a4:
 
 
 Call_001_52be:
-    call Call_001_4eae                            ; $52be: $cd $ae $4e
+    call Call_001_4eae_FindAnyShield                            ; $52be: $cd $ae $4e
     ld a, $00                                     ; $52c1: $3e $00
     ret c                                         ; $52c3: $d8
 
@@ -3382,7 +3391,7 @@ Call_001_52be:
 
 Jump_001_52e7:
     ld a, $06                                     ; $52e7: $3e $06
-    call Call_001_4ebc                            ; $52e9: $cd $bc $4e
+    call Call_001_4ebc_ConsumeInventoryItem                            ; $52e9: $cd $bc $4e
     ld a, [$c123]                                 ; $52ec: $fa $23 $c1
     ld c, a                                       ; $52ef: $4f
     ld e, $01                                     ; $52f0: $1e $01
@@ -3399,7 +3408,7 @@ Jump_001_52e7:
 
 Jump_001_5307:
     ld a, $12                                     ; $5307: $3e $12
-    call Call_001_4ebc                            ; $5309: $cd $bc $4e
+    call Call_001_4ebc_ConsumeInventoryItem                            ; $5309: $cd $bc $4e
     ld a, [$c124]                                 ; $530c: $fa $24 $c1
     ld c, a                                       ; $530f: $4f
     ld e, $01                                     ; $5310: $1e $01
@@ -3463,7 +3472,7 @@ Jump_001_5307:
     call Call_000_32a3                            ; $538d: $cd $a3 $32
     call Call_000_32b2                            ; $5390: $cd $b2 $32
     ld a, [$c514]                                 ; $5393: $fa $14 $c5
-    call Call_001_4ebc                            ; $5396: $cd $bc $4e
+    call Call_001_4ebc_ConsumeInventoryItem                            ; $5396: $cd $bc $4e
     jp Jump_000_348c                              ; $5399: $c3 $8c $34
 
 
@@ -3524,7 +3533,7 @@ jr_001_53b2:
     ld a, $46                                     ; $53f5: $3e $46
     call Call_000_00d9                            ; $53f7: $cd $d9 $00
     ld a, [$c514]                                 ; $53fa: $fa $14 $c5
-    call Call_001_4ebc                            ; $53fd: $cd $bc $4e
+    call Call_001_4ebc_ConsumeInventoryItem                            ; $53fd: $cd $bc $4e
     jp Jump_000_348c                              ; $5400: $c3 $8c $34
 
 
@@ -3742,7 +3751,7 @@ jr_001_5543:
     call Call_000_32a3                            ; $5590: $cd $a3 $32
     call Call_000_32b2                            ; $5593: $cd $b2 $32
     ld a, [$c514]                                 ; $5596: $fa $14 $c5
-    call Call_001_4ebc                            ; $5599: $cd $bc $4e
+    call Call_001_4ebc_ConsumeInventoryItem                            ; $5599: $cd $bc $4e
     ld a, $01                                     ; $559c: $3e $01
     ld [$c540], a                                 ; $559e: $ea $40 $c5
     ld a, $20                                     ; $55a1: $3e $20
@@ -3803,7 +3812,7 @@ jr_001_55e9:
     rst RST_38                                    ; $55ef: $ff
     call Call_000_30c5                            ; $55f0: $cd $c5 $30
     ld a, [$c514]                                 ; $55f3: $fa $14 $c5
-    call Call_001_4ebc                            ; $55f6: $cd $bc $4e
+    call Call_001_4ebc_ConsumeInventoryItem                            ; $55f6: $cd $bc $4e
     ld a, $13                                     ; $55f9: $3e $13
     ld [$c125], a                                 ; $55fb: $ea $25 $c1
     ld a, [$c503]                                 ; $55fe: $fa $03 $c5
@@ -4622,7 +4631,7 @@ Call_001_5a91:
 
     ld a, [$c514]                                 ; $5aa2: $fa $14 $c5
     cp $03                                        ; $5aa5: $fe $03
-    call z, Call_001_4ebc                         ; $5aa7: $cc $bc $4e
+    call z, Call_001_4ebc_ConsumeInventoryItem                         ; $5aa7: $cc $bc $4e
     call Call_001_5bf9                            ; $5aaa: $cd $f9 $5b
     call Call_001_5b57                            ; $5aad: $cd $57 $5b
     xor a                                         ; $5ab0: $af

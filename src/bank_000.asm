@@ -10,6 +10,7 @@ DEF wPlayerDefense EQU $c122 ; current player defense stat (1 byte)
 DEF wPlayerLucky EQU $c123 ; current player lucky stat (1 byte)
 DEF wPlayerMaxHP EQU $c124 ; max player HP, BCD-encoded (1 byte); copy of wPlayerHP at quest start
 DEF wCurrentFloor EQU $c104 ; current dungeon floor number (1 byte)
+DEF wInventory EQU $c140 ; item inventory, 8 slots x 1 byte item-type-ID, $00 = empty slot
 
 SECTION "ROM Bank $000", ROM0[$0]
 
@@ -9875,6 +9876,13 @@ jr_000_36ce:
     ret                                           ; $36df: $c9
 
 
+; Item-selection cursor handler (camp/item screen): reads the cursor-tile icon from
+; $d500+offset; $10/$11 are special icons (cancel/drop?) handled separately below.
+; Otherwise compacts the inventory (Call_001_4e7a_CompactInventory), counts the items
+; (Call_001_4e5a_CountInventoryItems) to get the selected slot index in c, reads that
+; slot's item-type-ID and stores it into $c516 (the "item type currently being used"
+; staging variable consumed by the effect dispatcher around $50ac in bank_001.asm),
+; then clears the slot (item is removed from inventory immediately on selection).
 jr_000_36e0:
     ld a, [$c240]                                 ; $36e0: $fa $40 $c2
     and $7f                                       ; $36e3: $e6 $7f

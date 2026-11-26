@@ -15,7 +15,7 @@
 - [x] Basis-Stats-Tabelle gefunden (`BaseStatsByLevel`, bank_000.asm $31c8+) — siehe unten.
 - [x] Quest-Ziel-Tabellen pro Level gefunden (ROM-Bank 2, `$6e10`-`$6e37`) — siehe unten.
 - [x] Lucky-Stat/Trefferchance (Task #10).
-- [ ] Item-System (Task #11).
+- [x] Item-System (Task #11).
 
 ## Tooling (lokal im Projektordner)
 
@@ -711,3 +711,81 @@ Stats-Screen-Renderer ($5e46). Konkret:
 reiner Item/Orb-Wirkungsmultiplikator (Heilmenge, Zufalls-Timer-Bereich), keine Kampf-Statistik
 im Sinne von Hit/Miss. Keine Code-Änderungen nötig (nur Doku); Rebuild unverändert
 bit-identisch (MD5 `10d92861e262069ce31559e12b927aa0`).
+
+**Korrektur/Präzisierung (siehe Task #11 unten):** Was oben als "Orb-Effekt-Dispatcher"
+bezeichnet wurde, ist in Wirklichkeit der **generische Item-Use-Effekt-Dispatcher** (keyed
+über `$c516` = Item-Typ-ID, identisch zu den Byte-Werten im Inventar-Array `wInventory`/
+`$c140`). "Orb" ist nur einer von mehreren Item-Typen, die dort behandelt werden.
+
+## Item-System GEKLÄRT (Task #11)
+
+**Inventar:** `wInventory` (`$c140`-`$c147`, neu als Konstante in bank_000.asm definiert),
+8 Byte, ein Byte pro Slot, Wert = Item-Typ-ID, `$00` = leerer Slot. Stimmt exakt mit der
+Wiki-Angabe "maximal 8 Items" überein.
+
+**Gefundene Hilfsroutinen** (bank_001.asm, alle umbenannt mit `_`-Suffix, nur Kommentare/
+Labels geändert, keine Bytes):
+- `Call_001_4e5a_CountInventoryItems` ($4e5a): zählt belegte Slots.
+- `Call_001_4e6a_CountInventoryItemsOfType` ($4e6a): zählt Slots mit Item-Typ `a`
+  (wird z. B. mit `a=$07` aufgerufen, um die Anzahl gesammelter Orbs zu ermitteln und in
+  `$c16c`, das Orb-Quest-Fortschritts-Byte aus Task #9, zu schreiben → **Orb = Item-Typ `$07`**).
+- `Call_001_4e7a_CompactInventory` ($4e7a): schiebt belegte Slots nach vorne, füllt den
+  Rest mit `$00` (Lücken-Kompaktierung nach Benutzen/Wegwerfen eines Items).
+- `Call_001_4e93_FindInventoryItemOfType` ($4e93): lineare Suche nach Item-Typ `a` im
+  Inventar, gibt Slot-Index in `c` und Zero-Flag bei Treffer zurück.
+- `Call_001_4ea0_FindAnySword` ($4ea0): sucht rückwärts Item-Typen `$1b`→`$18` (4 Werte)
+  → **Schwerter = Item-Typ `$18`-`$1b`**.
+- `Call_001_4eae_FindAnyShield` ($4eae): sucht rückwärts `$1f`→`$1c` (4 Werte)
+  → **Schilde = Item-Typ `$1c`-`$1f`**.
+- `Call_001_4ebc_ConsumeInventoryItem` ($4ebc): entfernt ein Item vom Typ `a` aus dem
+  Inventar (setzt Slot auf `$00`) und löscht `$c514` (vermutlich ein "Aktion läuft"-Flag).
+
+**Ausrüstungs-Bonustabellen gefunden und als `db` dokumentiert** (bank_001.asm, $510a/$510e
+— sicher, da zwischen zwei `ret`-terminierten Routinen liegend, keine Sprungziele im Bereich,
+siehe Risiko-Policy oben):
+```
+SwordAttackBonusByItemID  ($510a): 01 02 03 05   → Schwert-ID $18/$19/$1a/$1b: +1/+2/+3/+5 Angriff
+ShieldDefenseBonusByItemID($510e): 01 02 03 05   → Schild-ID  $1c/$1d/$1e/$1f: +1/+2/+3/+5 Verteidigung
+```
+Indiziert über `Call_001_527b`/`Call_001_52be` (`item_id - $18`/`item_id - $1c`, dann
+`RST_28` = `hl += a`). **Stimmt exakt mit der Wiki-Tabelle überein** (Mahou/Honoo/Inazuma/
+Densetsu no Ken = +1/+2/+3/+5 Angriff; Ki/Tetsu/Hagane/Densetsu no Tate = +1/+2/+3/+5
+Verteidigung).
+
+**Effektiver Angriff/Verteidigung** (bereits unter Task #10 dokumentiert, hier nochmal
+im Item-Kontext): `Call_001_5cf3`/`Call_001_5d0e` addieren zwei Bonus-Bytes (`$c12d`+`$c12e`
+bzw. `$c12f`+`$c130`) auf die Basis-Stats. Diese Bonus-Bytes werden beim Ausrüsten von
+Schwert/Schild (`Jump_001_5261`/`Jump_001_52a4`) aus den obigen Tabellen befüllt. Passt zur
+Wiki-Aussage "Die Stat-Erhöhung von Schwertern/Schilden stapelt sich nicht" (nur ein
+Bonus-Slot pro Kategorie, kein Akkumulieren mehrerer Waffen).
+
+**Item-Benutzung (Ablauf):** Beim Betreten des Item-Screens wählt der Spieler einen
+Inventar-Slot per Cursor an; der Code bei `jr_000_36e0` (bank_000.asm, $36e0, jetzt
+kommentiert) kompaktiert das Inventar, ermittelt den Slot-Index über die Item-Zählung,
+liest den Item-Typ aus `wInventory[index]`, schreibt ihn nach `$c516` und **löscht den
+Slot sofort** (Item wird beim Auswählen entfernt, nicht erst nach Effekt-Ausführung). Der
+generische Effekt-Dispatcher (bank_001.asm, $50ac-$5326, verzweigt über `$c516`) führt dann
+die konkrete Wirkung aus — siehe Fallbeispiele unter Task #10 (Heilung, MaxHP+1, Angriffs-/
+Verteidigungs-Buff via Ausrüsten).
+
+**Sicher identifizierte Item-Typ-IDs:**
+
+| ID | Effekt | Wiki-Übereinstimmung |
+|---|---|---|
+| `$06` | temporärer Angriffs-Buff, Betrag/Dauer skaliert mit Lucky | passt zu "Kougeki" (temp. Angriffserhöhung) |
+| `$07` | Orb (zählt für Orb-Quest-Fortschritt `$c16c`) | "Orb" |
+| `$12` | `wPlayerMaxHP += 1`, belegt keinen Slot | "HP no Moto" (+1 MaxHP, belegt keinen Slot) |
+| `$18`-`$1b` | Schwert, Angriffsbonus +1/+2/+3/+5 | Mahou/Honoo/Inazuma/Densetsu no Ken |
+| `$1c`-`$1f` | Schild, Verteidigungsbonus +1/+2/+3/+5 | Ki/Tetsu/Hagane/Densetsu no Tate |
+
+**Nicht abschließend geklärt:** Die übrigen ~18 Item-Typ-IDs aus der Wiki-Liste (Kaifuku,
+Dokukeshi, Tobu, Change, Mamori, Toumei, Lucky, Oriru, Akari, Fire, Faigaa, Ganseki, Kagi,
+Gold) wurden nicht einzeln numerisch zugeordnet — dafür müsste der komplette
+Effekt-Dispatcher ($50ac-$5326 und die Aufrufer davor ab ~$4ff8) Zeile für Zeile
+durchgegangen werden, was über den Rahmen dieser Static-Analysis-Session hinausging. Gold
+([1], belegt laut Wiki keinen Inventar-Slot) wird vermutlich wie "HP no Moto" direkt beim
+Aufsammeln verarbeitet (ähnliches Muster wie der Pickup-Code bei `jr_000_36e0`), aber die
+konkrete Codestelle wurde nicht gesucht.
+
+Rebuild nach allen Umbenennungen/Kommentaren/`db`-Ersetzungen bleibt bit-identisch
+(MD5 `10d92861e262069ce31559e12b927aa0`).
