@@ -10,7 +10,7 @@
       unten.
 - [x] Spieler-Tod/Game-Over-Screen exploriert — siehe unten.
 - [ ] Code/Daten-Trennung (CDL) weiterhin zurückgestellt (bewusste Entscheidung, siehe unten).
-- [ ] Monster-Datentabelle (Task #6) — Zwischenstand, Kampf-Navigation blockiert.
+- [x] Monster-Datentabelle (Task #6) — HP-Feld gefunden (Offset `$06`), Typ `$01`=Crab identifiziert.
 - [ ] Dungeon-Sonderfelder (Task #7) — Zwischenstand, $c149-Hypothese widerlegt.
 - [x] Basis-Stats-Tabelle gefunden (`BaseStatsByLevel`, bank_000.asm $31c8+) — siehe unten.
 - [x] Quest-Ziel-Tabellen pro Level gefunden (ROM-Bank 2, `$6e10`-`$6e37`) — siehe unten.
@@ -516,32 +516,76 @@ Quest-Ziel-Tabellen → Lucky-Stat → Item-System.
 - **Offset `$0f`**: bereits dokumentiert (Zufalls-Mechanismus GELÖST oben) — 2-3-Bit
   Richtungs-/Zustandsfeld, zugleich Pseudo-Zufallsquelle.
 
-**Noch offen:**
-- Welches Offset die **aktuelle/maximale Monster-HP** trägt, ist noch nicht zweifelsfrei
-  bestätigt (Kandidaten: `$06`=5 oder `$09`=5, beide passen zu keinem Wiki-HP-Wert exakt,
-  könnte aber bereits eine reduzierte "aktuelle HP" nach Testschäden aus der vorherigen
-  Session sein). Dynamischer Test (Spieler bis zum Monster navigieren und wiederholt
-  angreifen, Offset-Diff beobachten) ist in diesem Savestate an Navigationsproblemen
-  gescheitert (Spieler/Monster blieben in diesem Testraum in einer kleinen Ecke
-  gefangen, nie wirklich benachbart — eventuell dieselbe Raum-Anomalie wie bei der
-  Treppen-/Geheimgang-Suche).
-- Die ROM-Tabelle, die Offsets `$05`-`$09` beim Spawn befüllt (ausgehend vom Monstertyp),
-  wurde noch nicht lokalisiert — nötig, um die 23 Wiki-Monster den internen Typ-IDs
-  zuzuordnen.
+## Monster-Struct-Layout GELÖST (Task #6): Offset `$06` = aktuelle HP, `$09` = Basis/Max-HP
 
-**Nächster sinnvoller Schritt:** Entweder (a) einen Savestate mit freierem Zugang zum
-Monster verwenden (z. B. Gold-Dungeon, wo die Navigation bereits erfolgreich war), oder
-(b) statisch weiter rückwärts von `Call_001_518a`s Aufrufstellen zur Spawn-Routine
-verfolgen, um die Tabellenadresse direkt zu finden statt per Kampftest.
+**Methode:** Echter, erfolgreicher Nahkampftest per PyBoy, diesmal mit funktionierender
+Navigation. Durchbruch-Erkenntnisse zur Steuerung (vorher nicht bekannt):
+1. Die bewährte DFS/Positions-Vergleichs-Methode aus der Etagentiefe-Suche (`$c503`/`$c504`
+   lesen, Taste drücken, Position vergleichen) wurde als BFS-Explorer neu aufgesetzt
+   (`scratch/gold_dfs_new.pkl`), um im Gold-Dungeon-Savestate einen begehbaren Pfad bis
+   neben das Monster zu kartieren — diesmal mit Rückkehr-Pfadsuche zwischen den DFS-Ästen
+   (vorherige Sitzungen hatten keine Rückkehr-Logik, liefen sich in Ecken fest).
+2. **Wichtige Erkenntnis zur Kampf-Eingabe:** Reines Bump-Movement in Richtung Monster löst
+   **keinen** Angriff aus (die Position bleibt unverändert, aber auch sonst passiert nichts).
+   Angriff erfordert **Richtungstaste (zum Ausrichten) gefolgt von A** — passt zur Wiki-
+   Beschreibung "perform an action such as attack" als eigene Aktion, nicht reines Hineinlaufen.
+3. **Der `$c120`=`0x99`-Unverwundbarkeits-Trick aus der Etagentiefe-Suche ist beim Kämpfen
+   NICHT sicher**: Er funktioniert einwandfrei für reine Bewegungs-Exploration, verursacht
+   aber im Kampf-Animationszustand (`$c125`=`14`) einen Glitch, der die HP danach pro Tick
+   kontinuierlich dekrementiert (vermutlich eine HP-Bar-Füllanimation, die nie ihr Ziel
+   erreicht, weil der Wert `0x99` weit über der echten `wPlayerMaxHP` liegt). Für die Kampf-
+   Tests deshalb bewusst mit echter HP gearbeitet (Level 1 = `0x10`, Risiko durch kurze
+   Tests und Savestate-Reload begrenzt).
 
-**Update:** Variante (a) im Gold-Dungeon-Savestate erneut versucht (naive 8er-Zyklus-
-Bewegung) — Spieler bleibt wieder in einer kleinen Ecke gefangen (Reihen 2-4), erreicht
-die Monster-Reihe (6) nie; das Monster selbst bestätigt dabei sauber "bewegt sich links/
-rechts auf fester Reihe" (Offset `$02`=Reihe bleibt `6`, Offset `$03`=Spalte oszilliert
-2-8) — passt zum Wiki-Bewegungsmuster "Crab: moves left and right". Für einen echten
-Kampftest wird die bereits erprobte BFS/Kollisions-Methode aus der Etagentiefe-Suche
-benötigt (position-delta-basierte Wanderung statt naiver Richtungszyklen) — in dieser
-Sitzung nicht mehr umgesetzt, offen für nächstes Mal.
+**Ergebnis (zwei unabhängige Kampftests, `gold_dungeon.state` und `combat2.state`, beide
+Monstertyp `$01`):**
+
+```
+gold_dungeon.state, Monstertyp $01, vor Kampf: Offset $06=5, $09=5
+  Treffer 1 (Spieler→Monster): Offset $06  5 → 3   (Schaden 2)
+  Gegentreffer (Monster→Spieler): wPlayerHP 0x10 → 0x08  (Schaden 2)
+  Treffer 2 (Spieler→Monster): Offset $06  3 → 0, Offset $00 (Slot-Flag) 6 → 0 (Monster besiegt)
+
+combat2.state, Monstertyp $01, vor Kampf: Offset $06=5, $09=5
+  Treffer 1: Offset $06  5 → 2   (Schaden 3)
+  Gegentreffer: wPlayerHP 0x10 → 0x06  (Schaden 4)
+  Treffer 2: Offset $06  2 → 1   (Schaden 1)
+  Gegentreffer: wPlayerHP 0x06 → 0x04  (Schaden 2)
+  Treffer 3: Offset $06  1 → 0, Offset $00 6 → 0 (Monster besiegt)
+```
+
+**Schlussfolgerung:**
+- **Offset `$06` = aktuelle Monster-HP** (BCD, nicht-negativ, bei 0 wird der ganze Slot
+  gelöscht — `$00` fällt dabei ebenfalls auf `0`).
+- **Offset `$09` = Basis-/Max-HP** des Monstertyps — bei beiden frisch angetroffenen,
+  unbeschädigten Monstern identisch zu Offset `$06` (`5`), wird aber im Kampf nicht
+  verändert (reiner Referenzwert, vermutlich aus der Typ-Tabelle beim Spawn kopiert).
+- Die variierenden Schadenswerte (2/2/3/4/1/2) in den beiden Tests bestätigen die in Task
+  #10 gefundene Schadensformel (`Call_001_5c47`/`Call_001_5c75`/$5c8a-$5cde: Angriff/
+  Verteidigung-basierte Ganzzahl-Arithmetik mit variablem Skalierungsfaktor `$c539 and $1f`,
+  kein fester Wert) — die frühere "Schaden ist immer exakt 2"-Beobachtung (siehe "Zufalls-/
+  Trefferchancen-Suche" oben) war ein Zufallstreffer eines einzelnen Testfalls, nicht die
+  allgemeine Regel.
+- **Bewegungsmuster-Abgleich:** Monstertyp `$01` bewegt sich ausschließlich horizontal
+  (Offset `$03`/Spalte oszilliert, Offset `$02`/Reihe bleibt konstant) — passt exakt zum
+  Wiki-Eintrag **"Crab (クラブス): HP 5, moves left and right"**. HP 5 und Bewegungsmuster
+  stimmen beide überein → **Monstertyp-ID `$01` = Crab** (hohe Konfidenz).
+
+**Noch offen (nicht weiter verfolgt, Zeitrahmen dieser Session):**
+- Die ROM-Tabelle, die Offsets `$05`,`$07`,`$08`,`$09` (und ursprünglich `$06`) beim Spawn
+  aus dem Monstertyp befüllt, wurde nicht lokalisiert — nötig, um alle 23 Wiki-Monster den
+  internen Typ-IDs zuzuordnen (bisher nur Typ `$01`=Crab via HP+Bewegung identifiziert).
+  `Call_001_518a` (bank_001.asm, $518a) ist **kein** Typ-Lookup, sondern indiziert über
+  `$c102` (aktuelles Level) — eine falsche Spur aus dem vorherigen Zwischenstand, hiermit
+  korrigiert.
+- Bedeutung von Offset `$00` jenseits von "`0`=leer/besiegt, ungleich `0`=belegt" (konkret
+  immer `6` bei lebendigen Monstern in allen Tests) nicht geklärt — könnte eine Typ-
+  Kategorie oder ein Konstantenwert ohne tiefere Bedeutung sein.
+- Offsets `$05`/`$07`/`$08` (Werte `2`/`4`/`2`, in beiden Tests identisch) vermutlich
+  Angriff/Verteidigung/Lucky-ähnliche Typ-Attribute, nicht einzeln zugeordnet.
+
+Keine Code-Änderungen (reine RAM-Struct-Dokumentation per Emulation, keine neue ROM-Tabelle
+mit Adresse gefunden). NOTES.md-only, kein Rebuild nötig.
 
 ## Dungeon-Sonderfelder (Task #7) — Zwischenstand: $c149 ist NICHT der Bodenbruch-Timer
 
