@@ -1,12 +1,21 @@
 # Combat System
 
-## There is no manual attack button, and no hit/miss roll
+## Targeting is a two-step select-then-confirm, and there is no hit/miss roll
 
-Combat is bump-based: face a monster (press the direction toward it) and press **A**.
-Pure directional movement into an occupied tile does *not* attack by itself — you need the
-explicit A press once facing the target. Every attack that is attempted this way lands;
-there is **no accuracy/miss chance anywhere in the game**. This was confirmed on both sides
-of combat:
+Combat is **not** a simple bump-attack. Confirmed via live play (Beaten Dying Moon
+emulator), the actual sequence is:
+
+1. Walk up to stand adjacent to one or more monsters.
+2. Press the direction toward the monster you want to target — this doesn't move you (you're
+   already adjacent) or attack yet, it **selects** that monster. The selection is shown as
+   blinking corner markers on the monster's tile. If multiple monsters are adjacent, pressing
+   a different direction re-selects a different one.
+3. Press **A** to actually execute the attack on the currently-selected target.
+
+So targeting takes a direction press *and* a separate A press — simply walking into a
+monster's tile does not attack by itself. Every attack executed this way lands; there is
+**no accuracy/miss chance anywhere in the game**. This was confirmed on both sides of
+combat:
 
 - **Monster → player** damage is a deterministic per-monster-type table lookup
   (`Call_001_518a`-style lookups), not a random roll.

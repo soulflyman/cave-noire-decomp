@@ -925,3 +925,31 @@ konkrete Codestelle wurde nicht gesucht.
 
 Rebuild nach allen Umbenennungen/Kommentaren/`db`-Ersetzungen bleibt bit-identisch
 (MD5 `10d92861e262069ce31559e12b927aa0`).
+
+## Spielmechaniken aus Live-Play im "Beaten Dying Moon"-Emulator bestätigt
+
+User hat begonnen, im Beaten Dying Moon Emulator zu spielen (u.a. um `.sym`-Daten zu
+erzeugen), und dabei folgende Interaktionsmuster per Hand bestätigt:
+
+1. **Treppe/Etagenwechsel**: auf das Treppenfeld laufen, dann **A** drücken. Deckt sich
+   exakt mit der bereits früher dynamisch verifizierten Annahme (siehe "Etagentiefe GELÖST").
+
+2. **Angriff — Korrektur/Präzisierung des bisherigen Combat-Befunds**: Steht man neben einem
+   oder mehreren Gegnern, erscheint keine automatische Ziel-Markierung. Man muss **erneut in
+   Richtung des gewünschten Gegners drücken**, um ihn zu selektieren (sichtbar als blinkende
+   Eckmarkierungen auf seiner Kachel — bei mehreren Gegnern wählt ein erneuter Richtungsdruck
+   einen anderen aus). Erst danach löst **A** den eigentlichen Angriff aus. Es ist also kein
+   einfaches "hinlaufen + A", sondern ein zweistufiges Select-dann-Confirm. Das bisherige
+   NOTES-Framing ("face a monster and press A") war im Kern richtig (kein Bump-Attack, A
+   nötig), aber ungenau bzgl. des expliziten zweiten Richtungsdrucks zur Auswahl — in
+   `wiki/Combat-System.md` korrigiert.
+
+3. **Kisten/Items aufsammeln**: strukturell identisch zum Angriffs-Ablauf. Hinlaufen,
+   erneuter Richtungsdruck zum Selektieren der Kiste (gleiche blinkende Eckmarkierung), dann
+   **A** zum Öffnen. Der Gegenstand fällt dabei auf das Kistenfeld (landet NICHT direkt im
+   Inventar). Erst wenn man auf dieses Feld läuft und dort erneut **A** drückt, wandert der
+   Gegenstand ins Inventar. Zwei getrennte A-Drücke (öffnen, dann aufheben) mit einer
+   Laufbewegung dazwischen — kein einstufiges "hinlaufen und einsammeln".
+
+Entsprechend in `wiki/Combat-System.md`, `wiki/Dungeon-Mechanics.md` und
+`wiki/Controls-and-Menus.md` nachgezogen. Reiner Dokumentations-Fund, keine Code-Änderung.

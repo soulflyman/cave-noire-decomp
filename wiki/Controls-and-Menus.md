@@ -11,8 +11,11 @@
 | Select | Display monster HP |
 
 The game is **fully turn-based**: nothing moves without a key press (verified by idling 40
-emulated frames with no input — zero position changes anywhere). There is no manual attack
-button; see [Combat System](Combat-System) for how attacks actually trigger.
+emulated frames with no input — zero position changes anywhere). There is no dedicated
+attack button; attacking a monster and opening/picking up a chest item both use the same
+select-with-direction-then-confirm-with-A pattern — see [Combat System](Combat-System) and
+[Dungeon Mechanics](Dungeon-Mechanics) for the exact sequences. Descending a staircase is
+simpler: walk onto the stairs tile, then press A.
 
 ## Boot → dungeon entry flow (explored headless via PyBoy)
 

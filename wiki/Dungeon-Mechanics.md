@@ -9,10 +9,27 @@ bank 0) sets the main state machine (`$c126`) based on it:
 | Tile class | Result | Mechanic | Confidence |
 |---|---|---|---|
 | `$08` | Calls `$5d40` (quest-type table), then transitions state | **Stairs** | Confirmed (reuses the already-verified floor-depth routine) |
-| `$0a` | Jumps into the item-pickup code | **Item/chest pickup** | Confirmed (see [Item System](Item-System)) |
+| `$0a` | Jumps into the item-pickup code | **Item/chest pickup** | Confirmed (see [Item System](Item-System) and chest flow below) |
 | `$0b` | Calls `$408a` | **Warp** (see below) | Plausible, not dynamically tested |
 | `$07` | Sets state `3` | Unidentified | Open |
 | anything else | Sets state `4` | Normal walkable floor | — |
+
+## Chest/item pickup flow
+
+Confirmed via live play (Beaten Dying Moon emulator): picking up an item from a chest is a
+three-step interaction, structurally identical to the attack-targeting flow in
+[Combat System](Combat-System):
+
+1. Walk up adjacent to the chest tile.
+2. Press the direction toward it again to select it (same blinking-corner selection as
+   targeting a monster).
+3. Press **A** to open it. The contained item drops onto the chest's tile (it does not go
+   straight into the inventory).
+4. Walk onto that tile, then press **A** again to actually pick the dropped item up into the
+   inventory.
+
+So a chest requires two separate A presses (open, then pick up) with a move in between, not
+a single walk-and-grab.
 
 ## Warp
 
