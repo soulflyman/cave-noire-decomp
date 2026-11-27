@@ -22,6 +22,10 @@ PyBoy has no in-window mute key, but the constructor takes a volume (0-100) and 
 sound_emulated flag - pass --mute (or --volume N) on the command line to start quiet,
 since there's no way to toggle it live once the window is open.
 
+At startup the script asks whether you want to resume from one of the savestates in
+scratch/states/ (listed newest-first) or start the ROM fresh - answer with a number or
+just hit Enter for a fresh start.
+
 Usage:
     source .venv/bin/activate
     python3 tools/play_and_save.py ["rom/Cave Noire (Japan).gb"] [out_prefix] [--mute|--volume N]
@@ -37,6 +41,33 @@ from pyboy import PyBoy
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_ROM = PROJECT_ROOT / "rom" / "Cave Noire (Japan).gb"
 OUT_DIR = PROJECT_ROOT / "scratch" / "states"
+
+
+def prompt_for_savestate():
+    """Ask the user whether to resume from an existing savestate. Returns a Path or None."""
+    states = sorted(OUT_DIR.glob("*.state"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not states:
+        print("No savestates found in scratch/states/ - starting fresh.")
+        return None
+
+    print("\nSavestates found (newest first):")
+    for i, path in enumerate(states, start=1):
+        print(f"  {i}. {path.name}")
+    print("  0 / Enter. Start fresh (no savestate)")
+
+    choice = input("Load which savestate? [0] ").strip()
+    if not choice or choice == "0":
+        return None
+
+    try:
+        index = int(choice)
+        if 1 <= index <= len(states):
+            return states[index - 1]
+    except ValueError:
+        pass
+
+    print(f"'{choice}' is not a valid choice - starting fresh.")
+    return None
 
 
 def main():
@@ -58,6 +89,8 @@ def main():
     state_file = Path(str(rom_path) + ".state")
     last_mtime = state_file.stat().st_mtime if state_file.is_file() else None
 
+    resume_state = prompt_for_savestate()
+
     print(f"Loading {rom_path}")
     print(f"Press Z in the game window to save - copies go to {OUT_DIR}/{out_prefix}_<n>.state")
     print("Press X to load the most recent Z-save. Esc to quit.")
@@ -68,6 +101,11 @@ def main():
         sound_volume=args.volume,
     )
     pyboy.set_emulation_speed(1)
+
+    if resume_state is not None:
+        with open(resume_state, "rb") as f:
+            pyboy.load_state(f)
+        print(f"Resumed from {resume_state}")
 
     count = 0
     try:
