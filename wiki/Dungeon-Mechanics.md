@@ -104,14 +104,45 @@ Three structurally similar routines were found that match this description close
 |---|---|---|---|
 | `Call_000_2f3f` → `Jump_000_3323` | Random check (`Call_000_3e08`) + tile ID match (`$1d`/`$23`) | `$5a` | "!!" floor crack warning |
 | `Call_000_2f48` → `Jump_000_3327` | Random check + tile ID match (`$09`), scanned across all 4 directions | `$42` | "?" secret wall warning |
-| `Call_000_3772` → `Jump_000_332b` | Deterministic tile check (`== $0f`), no randomness | `$56` | Hole-jump icon |
+| `Call_000_3772` → `Jump_000_332b` | Deterministic tile check (`== $0f`), no randomness | `$56` | Hypothesized as a hole-jump icon - **not confirmed, likely wrong** (see below) |
 
 All three converge on shared drawing code (`jr_000_332d`) that writes a small 2-tile sprite
-to the OAM shadow buffer above the player. The mapping (random-vs-deterministic trigger,
-3 distinct icon tiles matching 3 distinct wiki warnings) is a strong static hypothesis, but
-a scripted 60-step walk-back-and-forth test in a sample dungeon room didn't trigger any of
-them — likely because that particular room/tiles don't qualify, or the random odds are too
-low for that short a sample. Needs a savestate standing on/next to a qualifying tile.
+to the OAM shadow buffer above the player.
+
+**The hole/crack-jump mechanic, confirmed live** (a savestate standing right next to a
+crack tile, described from play as "a hole you can jump across by double-tapping the
+direction you're facing"): the `Call_000_3772`/`$0f` hypothesis turned out to be a dead end
+- an exhaustive scan of the entire reachable room (decoded properly, see the room-layout
+address formula below) found zero cells with raw value `$0f`. The tile the player was
+standing next to instead had raw value `$1d` (29) - the **same raw tile ID that
+`Call_000_2f3f`/`Jump_000_3323` checks for** (the "!!" floor crack warning). Standing on it
+normally is completely harmless (confirmed over 100+ idle frames, no HP loss, no delayed
+effect) - the hazard described by the community as "a hole" and the game's "!!" crack
+warning are the same tile.
+
+The jump itself: a *slow* single press onto this tile just walks onto it normally (one tile
+of movement). A *fast* double-press of the same direction (press, ~4 frames, release, ~2
+frames, press again, ~4 frames, release) instead moves the player **two tiles in one go**,
+completely skipping the crack tile and landing safely beyond it - exactly as described.
+HP unaffected either way in testing. The exact code path that detects the fast repeat-press
+and triggers the 2-tile jump (as opposed to the normal 1-tile movement commit) wasn't
+isolated in this session - a RAM diff between the slow and fast sequences didn't surface an
+obviously distinct "double-tap counter" address.
+
+### Decoding the room layout (useful for any future tile-geometry work)
+
+Room data lives in a WRAM buffer, resolved via a word-table lookup at ROM address `$2047`
+(mirroring `Call_000_2dfe`/`jr_000_2e0a`, called from `Call_000_2ef1`):
+
+```
+RoomBase = word[$2047 + 2 * $c500]     ; $c500 = current room index
+addr     = RoomBase + 2*swap_nibble(row) + col
+```
+
+where `row`/`col` are `$c503`/`$c504`. Verified against a live sample: for `$c500=2`
+(`RoomBase=$c80a`), player at (row 4, col 1) resolved to exactly `$c88b`, matching the
+address independently observed via a `Call_000_3772` register hook. This lets the entire
+current room be reconstructed as a clean grid directly from a savestate.
 
 Two more structurally identical "scan all 4 directions for a matching tile ID" routines
 exist in the item-effect code (`Call_000_2f48` used from `$53a2`, `Call_000_2f4c` used from

@@ -1231,3 +1231,43 @@ geklärt — `$c241` zeigte nur den generischen Wand-Wert `$80`, spricht eher f�
 Koordinatenprüfung als ein eigenes Tile-Klassen-System wie bei Treppe/Kiste/Warp.
 
 Reiner Dokumentations-Fund (keine Code-Änderung/kein Rebuild nötig).
+
+## Loch-Sprung-Mechanik GEKLÄRT (`save_001.state`, Quest 1/Level 2) — Sackgasse, dann Durchbruch
+
+User-Beschreibung: direkt vor einem Bodenloch stehend (Blickrichtung Norden), Indikator als
+Sprechblase sichtbar, zwei schnelle Richtungsdrücke lassen den Spieler drüberspringen,
+dahinter normaler Boden, noch ein Feld weiter eine Kiste.
+
+**Erst Sackgasse:** Meine alte statische Hypothese ("Loch = Tile-Rohwert `$0f`",
+`Call_000_3772`/`Jump_000_332b`) ließ sich trotz ausführlicher BFS-Suche durch den ganzen
+erreichbaren Raum **nicht** bestätigen — kein einziges Feld hatte den Rohwert `15`.
+
+**Durchbruch:** Die Raum-Rohdaten korrekt dekodiert (bisher falsch angenommene Zeilen-
+Schrittweite). Die echte Adressformel (aus `Call_000_2dfe`/`jr_000_2e0a` abgelesen):
+`addr = RoomBase[$c500] + 2×swap_nibble(row) + col`, wobei `RoomBase` eine Wort-Tabelle bei
+ROM-Adresse `$2047` ist, indiziert über `$c500` (Raum-Index). Damit den ganzen Raum um die
+Spielerposition sauber als Gitter rekonstruiert:
+
+```
+Spieler bei (row=4, col=1). Nördlich (row=3,col=1) = 29 (0x1d)  <- Riss-Tile!
+Noch ein Feld nördlich (row=2,col=1) = 9 (normaler Boden)
+Noch ein Feld nördlich (row=1,col=1) = 128 (0x80, Bit7 gesetzt = Kiste!)
+```
+
+Das "Loch" ist also **dasselbe Tile wie der bereits bekannte "!!"-Rissboden** (Rohwert `29`,
+`Call_000_2f3f`/`Jump_000_3323` — zufallsgesteuerte "!!"-Warnung). Einfaches Drauflaufen
+(ein Tastendruck) ist **komplett ungefährlich** (getestet: HP blieb über 100+ Leerlauf-Frames
+unverändert, kein verzögerter Fall-Effekt) — der Rissboden selbst tut also nichts Akutes.
+
+**Der Sprung, dynamisch bestätigt:** Ein *schneller* Doppel-Druck derselben Richtung
+(press→4 Ticks→release→2 Ticks→press→4 Ticks→release, im Gegensatz zum langsamen
+Einzel-Druck-Test) ließ den Spieler in **einem** Bewegungsschritt von `(4,1)` direkt nach
+`(2,1)` springen — zwei Felder auf einmal, die Riss-Kachel `(3,1)` komplett übersprungen,
+HP unverändert. Per Screenshot visuell bestätigt (Spieler landet zwei Felder weiter, Kiste
+jetzt sichtbar näher). Exakt das vom User beschriebene Verhalten.
+
+**Offen:** Die genaue Code-Stelle, die das schnelle Doppel-Drücken erkennt und den
+2-Felder-Sprung auslöst, wurde in dieser Session nicht lokalisiert (ein RAM-Diff zwischen
+Einzel- und Doppel-Druck-Testlauf zeigte keine eindeutig isolierbare "Doppel-Tipp-Zähler"-
+Adresse — zu viele normale bewegungsbedingte Änderungen überlagern das Signal). Reiner
+Dokumentations-Fund (keine Code-Änderung), Verhalten aber vollständig dynamisch bestätigt.

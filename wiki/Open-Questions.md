@@ -13,12 +13,16 @@ fastest way to contribute.
   one-shot "reveal more of this room now" burst, consumed on use, that does **not** reveal
   hidden monsters (those need separate approach). The exact per-move reveal routine itself
   is still unlocated — see [Dungeon Mechanics](Dungeon-Mechanics).
-- **"!!" floor-crack warning icon**: plausible code match, not dynamically triggered. Needs
-  a savestate on/next to an actually-cracking floor tile (tile ID `$1d` or `$23` ahead of
-  the player).
-- **"?" secret-wall warning icon**: same situation, needs a tile ID `$09` adjacent to the
-  player.
-- **Hole-jump icon**: needs a savestate directly facing a hole (tile ID `$0f` ahead).
+- ~~**"!!" floor-crack warning / hole-jump mechanic**~~ — confirmed, and it turns out
+  they're the same tile: raw tile value `$1d` is completely harmless to stand on, but a
+  fast double-press of the facing direction jumps two tiles at once, skipping it entirely.
+  The `Call_000_3772`/`$0f` "hole-jump icon" hypothesis was a dead end - no such tile exists
+  in the tested room; what the community calls "a hole" is this same crack tile. See
+  [Dungeon Mechanics](Dungeon-Mechanics). Still open: the exact code that detects the fast
+  double-press and triggers the 2-tile jump.
+- **"?" secret-wall warning icon**: still not dynamically triggered. Needs a savestate with
+  a tile ID `$09` adjacent to the player (unconfirmed whether this hypothesis is even
+  right, given the hole-jump one wasn't).
 - ~~**Warp mechanic**~~ — confirmed exactly as hypothesized: `$c427`/`$c428` are a warp
   pair's two room-index endpoints, and stepping onto the tile + pressing A teleports to
   whichever endpoint isn't the current room, same floor, different room. See
