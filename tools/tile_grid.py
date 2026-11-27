@@ -86,8 +86,11 @@ def read_room_grid(memory):
 # is always the screen's top-left cell. (An earlier version of this tool incorrectly
 # assumed a player-centered scrolling camera over a 16x16 room; that produced the wrong
 # on-screen position and could clip real items out of the displayed window entirely.)
+# Height is 8, not 9: the bottom 16px of the screen is the fixed HUD bar (HP/monster
+# counter/floor number), not part of the scrollable dungeon view - row 8 is always
+# empty padding in every sample checked, and HUD sprites alias into it if included.
 VIEWPORT_WIDTH = 10
-VIEWPORT_HEIGHT = 9
+VIEWPORT_HEIGHT = 8
 
 
 def read_viewport_grid(memory, width: int = VIEWPORT_WIDTH, height: int = VIEWPORT_HEIGHT):
@@ -102,3 +105,35 @@ def read_viewport_grid(memory, width: int = VIEWPORT_WIDTH, height: int = VIEWPO
 
 def col_letter(col: int) -> str:
     return chr(ord("A") + col)
+
+
+# Monsters (and other sprite-based things like the darkness eye-pair) aren't part of
+# the background tile grid at all - they're plain OAM sprites, tracked completely
+# separately (see the monster array at $c5c0, wiki/Monster-System.md). Rather than
+# rely on that array (which also contains non-monster entries that are hard to tell
+# apart reliably, see that doc's "Non-monster entries" section), we just scan OAM
+# directly: screen position in 16px cells is (oam_y-16)//16, (oam_x-8)//16 - the same
+# zero-offset mapping confirmed for the player above - and anything that isn't where
+# the player themselves currently stands is "something else" worth flagging.
+OAM_BASE = 0xFE00
+OAM_COUNT = 40
+
+
+def read_sprite_cells(memory, player_row: int, player_col: int, width: int, height: int) -> set[tuple[int, int]]:
+    """Returns the set of (row, col) grid cells currently covered by a non-player
+    sprite, clipped to the given width/height (so off-screen HUD sprites etc. are
+    naturally excluded)."""
+    cells = set()
+    for i in range(OAM_COUNT):
+        y = memory[OAM_BASE + i * 4]
+        x = memory[OAM_BASE + i * 4 + 1]
+        if y == 0 or x == 0:
+            continue
+        row = (y - 16) // 16
+        col = (x - 8) // 16
+        if not (0 <= row < height and 0 <= col < width):
+            continue
+        if (row, col) == (player_row, player_col):
+            continue
+        cells.add((row, col))
+    return cells

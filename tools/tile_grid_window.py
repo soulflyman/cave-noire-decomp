@@ -13,11 +13,15 @@ Each grid cell is rendered as a fixed-size square (CELL_PX) rather than sized by
 character count, so the WxH grid of cells reproduces the Game Boy screen's own
 160x144 proportions (10x9 logical 16x16 cells) - makes it easier to eyeball the
 grid window next to the emulator window and match positions up.
+
+Monsters (and other sprite-based things) aren't part of the background tile grid at
+all, so they're overlaid separately from a live OAM scan - see
+tile_grid.read_sprite_cells - shown as "[M]" on a purple background.
 """
 import tkinter as tk
 from tkinter import font as tkfont
 
-from tile_grid import VIEWPORT_HEIGHT, VIEWPORT_WIDTH, col_letter, read_viewport_grid
+from tile_grid import VIEWPORT_HEIGHT, VIEWPORT_WIDTH, col_letter, read_sprite_cells, read_viewport_grid
 
 CELL_PX = 56  # square, so the WxH grid keeps the game screen's 160x144 proportions
 HEADER_PX = 24
@@ -25,6 +29,7 @@ BG_TERRAIN = "#1e1e1e"
 BG_ITEM = "#2d5f2d"
 BG_CHEST = "#5f4a2d"
 BG_PLAYER = "#5f2d2d"
+BG_SPRITE = "#6b3fa0"  # monster or other non-player sprite (not part of the tile grid)
 FG = "#e0e0e0"
 
 
@@ -94,6 +99,7 @@ class TileGridWindow:
         room, player_row, player_col, row_start, col_start, grid = read_viewport_grid(
             memory, self.width, self.height
         )
+        sprite_cells = read_sprite_cells(memory, player_row, player_col, self.width, self.height)
         self.info_label.configure(
             text=f"room {room}  player @ {col_letter(player_col)}{player_row}"
         )
@@ -109,9 +115,18 @@ class TileGridWindow:
                 abs_col = col_start + col
                 cell = grid[row][col]
                 frame, label = self.cell_labels[row][col]
-                label.configure(text=cell.label)
-                if abs_row == player_row and abs_col == player_col:
+                is_player = abs_row == player_row and abs_col == player_col
+                is_sprite = (abs_row, abs_col) in sprite_cells
+
+                if is_sprite:
+                    label.configure(text="[M]" if not is_player else cell.label)
+                else:
+                    label.configure(text=cell.label)
+
+                if is_player:
                     bg = BG_PLAYER
+                elif is_sprite:
+                    bg = BG_SPRITE
                 elif cell.is_item and cell.closed_chest:
                     bg = BG_CHEST
                 elif cell.is_item:
