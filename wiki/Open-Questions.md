@@ -98,13 +98,21 @@ fastest way to contribute.
   this quest type/level. Needs a savestate of quest 1 at a higher level to compare.
 - **Secret passages in the same test room**: searched, not found — possibly the same
   room-specific anomaly. Worth retrying in a different dungeon/quest type.
-- **Ambiguous labels in `bank_002.asm`** (`jr_002_6e0d`, `jr_002_6e39`): these sit inside
-  what's otherwise clearly the quest-objective data table (`$6e00`-`$6e37`), and might be
-  real reachable code or pure disassembly artifacts. A PyBoy hook on both addresses during
-  an actual quest start (tried for all 4 quest types) would settle it either way.
-- **Game Over trigger #3** (`$0d4c`, gated by a `$c149` countdown in an unidentified game
-  state): needs a savestate shortly before this specific kind of Game Over to trace which
-  state it belongs to.
+- ~~**Ambiguous labels in `bank_002.asm`** (`jr_002_6e0d`, `jr_002_6e39`)~~ — resolved
+  statically: both are pure disassembly artifacts, not reachable code. Every reference to
+  either label is itself another `jr` instruction inside the same byte range
+  (`$6d19`-`$6e6b`); nothing outside that range ever calls or jumps in. That whole range
+  shows the classic signature of raw data mis-decoded as Z80 opcodes (endlessly repeating
+  register-pair ops like `ld l,c`/`xor d`/`ld a,[bc]`), running right up to the already
+  -confirmed real quest-objective table at `$6e10`. See [Quest System](Quest-System).
+- ~~**Game Over trigger #3's game state**~~ — resolved statically: it's main dispatcher
+  state `$c100 = 11`, found by reading the inline `rst RST_00` jump table at bank 0 `$0af8`
+  directly from the ROM bytes (entry 11 = `$0d4c`'s handler at `$0d48`). The handler looks
+  like part of the stairs-down/corridor-run floor-transition animation cluster (states
+  `4`, `8`-`12`), so this is likely a defensive fallback rather than a distinct timed death
+  cause. Still open: no literal store ever sets `$c100` to `11`, so how/when the dispatcher
+  actually enters this state wasn't found — would need a savestate shortly before this
+  Game Over to trace live. See [Player Death and Game Over](Player-Death-and-Game-Over).
 - **Quest type 3/4 (Orb/Fairy) objective addresses**: derived statically from the ROM bank 2
   header table, unlike quest types 1/2 which were confirmed live against the HUD. Needs
   savestates with an active Orb or Fairy quest to confirm the same way.

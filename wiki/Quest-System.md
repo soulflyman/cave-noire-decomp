@@ -48,11 +48,16 @@ the resolved value into `$c16b` etc. — this likely involves an explicit ROM ba
 bank 2 that wasn't traced. The table itself was located by directly searching the ROM bytes
 for the known StrategyWiki numbers, not by following the code path.
 
-A deliberate choice was made **not** to convert this ROM bank 2 region into clean `db`
-statements in the source: two labels (`jr_002_6e0d`, `jr_002_6e39`) that are referenced by
-real jump instructions elsewhere in that file land inside this byte range, and it wasn't
-possible to safely rule out that they're real, reachable code rather than disassembly
-artifacts. The table values are documented here instead, read directly from the ROM file.
+The ROM bank 2 region just before this table (`$6d19`-`$6e0f`-ish) disassembles as garbage
+Z80 opcodes rather than clean data — the classic sign of raw bytes being mis-decoded, since
+mgbdis has no way to know this is data. Two of the "jump" instructions inside that garbage
+(`jr_002_6e0d`, `jr_002_6e39`) looked at first like they might be real, reachable code, since
+they're referenced by `jr` instructions elsewhere in the file — but every single reference
+to either label turned out to be *another* `jr` inside that same garbage byte range; nothing
+outside it ever calls or jumps in. So both are confirmed pure disassembly artifacts, not real
+code. The table values above are still documented by reading the ROM file directly rather
+than converting the region to `db` statements in the source, since that's a bigger, separate
+cleanup.
 
 ## Base per-level player stats
 
