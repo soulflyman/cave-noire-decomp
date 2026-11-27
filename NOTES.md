@@ -1431,3 +1431,12 @@ Eine vierte Routine, `Call_000_1267_LookupQuestLevelNibbleStat`, macht denselben
 Quest+Level-Lookup gegen eine andere Tabelle (Bank 2, `$6da6`, direkt hinter den
 Item-Vorlagen) und liefert ein gepacktes Nibble statt 32 Byte zu kopieren — Zweck noch
 nicht geklärt. Rebuild bleibt bit-identisch.
+
+## Grid-Tool live mit echtem Spiel abgeglichen, Treppe identifiziert
+
+User hat das neue `--grid`-Tool benutzt und live gegengeprüft: Positionen von Spieler,
+Gold und einem Monster stimmten exakt mit dem Tool überein (nachdem ein Kamera-Bug
+behoben wurde, siehe Git-Historie `tools/`). Dabei nebenbei einen neuen Tile-Fund:
+Rohwert `$10` = **Treppe nach unten** (bestätigt in `save_002.state`, Feld F3 im
+Grid-Tool). In `wiki/Dungeon-Mechanics.md` eine kleine Tabelle bekannter Boden-Tile-IDs
+ergänzt.

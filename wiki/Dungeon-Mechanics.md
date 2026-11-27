@@ -150,6 +150,24 @@ exist in the item-effect code (`Call_000_2f48` used from `$53a2`, `Call_000_2f4c
 adjacent tile) item effects, which both need to find a qualifying adjacent tile. Not
 individually confirmed.
 
+Bit 7 of the raw tile byte means "this is an item/chest, not terrain" - see
+`tools/tile_grid.py` (the live grid-overlay tool) for the full `$d500` overlay
+indirection this implies, confirmed by cross-checking its output live against real
+play across several savestates.
+
+#### Known raw terrain tile IDs (bit 7 clear)
+
+Built up from room dumps across many savestates/sessions; only the ones below have a
+confirmed or strongly-suspected meaning; plenty of other values (`$0b`, `$0c`, `$0d`,
+`$0e`, `$20`, ...) show up regularly in dumps and are still unidentified.
+
+| Raw value | Meaning | Confidence |
+|---|---|---|
+| `$00` | Open floor | Confirmed (ubiquitous, matches walkable areas) |
+| `$06`/`$07`/`$08`/`$09` | Wall, various border orientations | Confirmed as solid/wall-class (consistently forms room borders), exact per-value orientation not individually confirmed |
+| `$10` | Stairs down | Confirmed live (`save_002.state`, user-identified in the grid tool at F3) |
+| `$1d` | Floor crack ("!!" warning) - see the hole-jump section above | Confirmed |
+
 ### The secret-passage ("?") mechanic, confirmed live
 
 Tested on a savestate standing one tile north of a hidden south-side passage, with a "?"
