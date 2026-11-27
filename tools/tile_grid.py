@@ -12,9 +12,13 @@ section of wiki/Dungeon-Mechanics.md):
 If bit 7 of `raw` is clear, the tile is plain terrain (wall/floor/crack/etc. - the raw
 value itself, not translated further here). If bit 7 is set, the low 7 bits are an
 index into a 128-byte overlay table at $d500: `overlay = memory[$d500 + (raw & $7f)]`.
-That overlay byte's own bit 7 means "still a closed chest" (the low 7 bits are then the
-chest's slot, not the item type - see Call_000_35ef_CheckClosedChestAhead); bit 7 clear
-means the low 7 bits *are* the item type ID lying exposed on the ground.
+That overlay byte's own bit 7 means "still a closed chest" - but the low 7 bits are
+**already the real item type** either way, closed or not (see
+Jump_001_4f3d_OpenChestRevealItem in bank 1: opening a chest only clears that bit, it
+doesn't write a new value - the item type was rolled and stored once, at room-generation
+time, for every chest in the room; see Call_001_74ce/jr_001_74c0 in bank 1 for that
+generation loop). So a closed chest's contents can be read directly, right now, without
+ever opening it.
 """
 from dataclasses import dataclass
 
@@ -50,10 +54,8 @@ class Cell:
     @property
     def known(self) -> bool:
         if self.is_item:
-            if self.closed_chest:
-                # item_type here is actually the chest's slot index, not an item type
-                # ID - there's nothing to identify until it's opened, so don't flag it.
-                return True
+            # item_type is the real item type whether the chest is closed or not -
+            # see the module docstring.
             return self.item_type in KNOWN_ITEM_TYPES
         return self.raw in KNOWN_TERRAIN_IDS
 
