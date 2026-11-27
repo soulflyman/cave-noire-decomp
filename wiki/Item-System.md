@@ -92,10 +92,9 @@ quest 1, deepest ($6850):     $01×2 $02×2 $03×1 $04×2 $05×2 $06×1 $08×1 $
 ```
 
 `$10`/`$11` (the confirmed gold-pile items) show up with increasing weight at deeper
-levels, as expected. **Item `$12` turned up with weight 1 in almost every quest/level
-template** - it's not yet in the confirmed item list (see "Not yet identified" below), so
-it's a good next candidate to chase down: look for it in a Call_001_75a8_
-RollWeightedItemType-fed chest at a shallow dungeon level, where it should be common.
+levels, as expected. `$12` ("HP no Moto", +1 max HP - see "Confirmed item type IDs"
+below) turns up with weight 1 in almost every quest/level template, so it should be a
+common find at any depth.
 
 A fourth routine, `Call_000_1267_LookupQuestLevelNibbleStat`, does the exact same
 quest+level lookup but against a different table (bank 2, `$6da6`, right after the item

@@ -31,12 +31,20 @@ BG_CHEST = "#5f4a2d"
 BG_PLAYER = "#5f2d2d"
 BG_SPRITE = "#6b3fa0"  # monster or other non-player sprite (not part of the tile grid)
 FG = "#e0e0e0"
+UNKNOWN_BORDER = "#e0c020"  # yellow border: raw tile/item ID isn't in the known list yet
 
 
-def _fixed_cell(parent, width, height):
+def _fixed_cell(parent, width, height, bordered=False):
     """A Frame locked to an exact pixel size (grid_propagate(False)), with a Label
-    filling it - so cells don't grow/shrink to fit their text."""
-    frame = tk.Frame(parent, width=width, height=height, bg=BG_TERRAIN)
+    filling it - so cells don't grow/shrink to fit their text. If `bordered`, reserves
+    a fixed-thickness highlight border (always present, but colored to match the
+    background when not flagged, so cell sizing never jitters) - used to flag cells
+    whose raw tile/item ID isn't in the known list yet."""
+    thickness = 2 if bordered else 0
+    frame = tk.Frame(
+        parent, width=width, height=height, bg=BG_TERRAIN,
+        highlightthickness=thickness, highlightbackground=BG_TERRAIN,
+    )
     frame.grid_propagate(False)
     label = tk.Label(frame, bg=BG_TERRAIN, fg=FG)
     label.place(relx=0.5, rely=0.5, anchor="center")
@@ -78,7 +86,7 @@ class TileGridWindow:
 
             cell_row = []
             for col in range(width):
-                frame, label = _fixed_cell(self.root, CELL_PX, CELL_PX)
+                frame, label = _fixed_cell(self.root, CELL_PX, CELL_PX, bordered=True)
                 label.configure(font=self.mono)
                 frame.grid(row=row + 2, column=col + 1, padx=1, pady=1)
                 cell_row.append((frame, label))
@@ -133,7 +141,7 @@ class TileGridWindow:
                     bg = BG_ITEM
                 else:
                     bg = BG_TERRAIN
-                frame.configure(bg=bg)
+                frame.configure(bg=bg, highlightbackground=UNKNOWN_BORDER if not cell.known else bg)
                 label.configure(bg=bg)
 
         try:

@@ -78,14 +78,11 @@ fastest way to contribute.
 
 ## Item system ([Item System](Item-System))
 
-- **~18 unidentified item type IDs**: Kaifuku, Dokukeshi, Tobu, Change, Mamori, Toumei,
-  Lucky, Oriru, Akari, Fire, Faigaa, Ganseki, Kagi, Gold. For each: a savestate with that
-  specific item in inventory (`wInventory`, `$c140`-`$c147`), then use it and watch the
-  `$c516`/effect-dispatcher jump.
-  - **Item `$12` specifically** - found with weight 1 in almost every per-floor item pool
-    template (bank 2, see [Item System](Item-System) "Where the pool gets (re)filled"),
-    so it should be easy to encounter: a savestate with it in inventory from an early
-    dungeon floor would let us identify it the same way the others were.
+- **~9 unidentified item type IDs**: Tobu, Change, Mamori, Lucky, Oriru, Faigaa, Ganseki,
+  Kagi, Gold (see [Item System](Item-System) "Not yet identified" for details - Kaifuku,
+  Dokukeshi, Toumei, Akari, Fire, and `$12`/"HP no Moto" are already confirmed). For each:
+  a savestate with that specific item in inventory (`wInventory`, `$c140`-`$c147`), then
+  use it and watch the `$c516`/effect-dispatcher jump.
 - **Sword/shield bonus actually applied in combat**: the bonus tables themselves are
   confirmed from ROM bytes, but applying one and then fighting with it hasn't been tested
   live. Needs a savestate with a sword or shield in inventory, followed by a combat test.

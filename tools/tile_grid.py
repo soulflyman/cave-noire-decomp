@@ -25,6 +25,16 @@ PLAYER_COL_ADDR = 0xC504
 OVERLAY_BASE = 0xD500
 GRID_SIZE = 16  # row/col are swap-nibble addressed -> 0-15 each
 
+# Keep these two in sync with wiki/Dungeon-Mechanics.md ("Known raw terrain tile IDs")
+# and wiki/Item-System.md ("Confirmed item type IDs") - anything not listed here gets
+# flagged in the grid window as still-unidentified, so it's easy to spot live and go
+# hunt down what it actually is.
+KNOWN_TERRAIN_IDS = {0x00, 0x06, 0x07, 0x08, 0x09, 0x10, 0x1D}
+KNOWN_ITEM_TYPES = {
+    0x01, 0x02, 0x03, 0x06, 0x07, 0x0A, 0x0D, 0x10, 0x11, 0x12,
+    0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
+}
+
 
 def swap_nibble(v: int) -> int:
     return ((v << 4) | (v >> 4)) & 0xFF
@@ -36,6 +46,12 @@ class Cell:
     is_item: bool
     item_type: int | None  # only set when is_item
     closed_chest: bool
+
+    @property
+    def known(self) -> bool:
+        if self.is_item:
+            return self.item_type in KNOWN_ITEM_TYPES
+        return self.raw in KNOWN_TERRAIN_IDS
 
     @property
     def label(self) -> str:
