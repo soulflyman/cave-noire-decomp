@@ -4,9 +4,10 @@ Pumped manually from the main PyBoy loop (play_and_save.py) - no threads, just a
 plain Tk root whose event loop we pump a couple of times a second alongside
 pyboy.tick(). See tile_grid.py for how cells are decoded from memory.
 
-Shows a viewport centered on the player (roughly what's visible in the emulator
-window at once, see tile_grid.VIEWPORT_WIDTH/HEIGHT), not the whole addressable
-16x16 room - the row/column headers shift with the player since the window scrolls.
+Shows a fixed width x height window starting at row 0/col 0 (see
+tile_grid.VIEWPORT_WIDTH/HEIGHT) - confirmed via OAM cross-checks against many
+savestates that this is always exactly the screen's top-left cell, no camera/scroll
+offset to account for.
 
 Each grid cell is rendered as a fixed-size square (CELL_PX) rather than sized by
 character count, so the WxH grid of cells reproduces the Game Boy screen's own

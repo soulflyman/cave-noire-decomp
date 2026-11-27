@@ -77,32 +77,27 @@ def read_room_grid(memory):
 
 # The Game Boy screen is 160x144px; each addressable row/col step is one 16x16 logical
 # dungeon cell (two background tiles square), so ~10 columns x 9 rows are visible at
-# once - matching what you'd actually see in the emulator window at a time, before the
-# camera scrolls further. The viewport is just centered on the player and clamped to
-# the 0-15 grid bounds; there's no traced camera/scroll register behind this, so it's
-# an approximation, not pixel-exact.
+# once. SCX/SCY (the PPU hardware scroll registers) sit at 0 in every dungeon
+# savestate checked - this game doesn't hardware-scroll the view at all. Cross-checked
+# against OAM sprite Y/X in 9+ independent dungeon savestates spanning many different
+# rooms and row/col values: screen position in 16px cells equals (row, col) directly,
+# zero offset, every single time. So rooms apparently never exceed the visible
+# viewport - there's no camera to account for, and no centering is needed: row 0/col 0
+# is always the screen's top-left cell. (An earlier version of this tool incorrectly
+# assumed a player-centered scrolling camera over a 16x16 room; that produced the wrong
+# on-screen position and could clip real items out of the displayed window entirely.)
 VIEWPORT_WIDTH = 10
 VIEWPORT_HEIGHT = 9
 
 
-def viewport_bounds(player_row: int, player_col: int, width: int = VIEWPORT_WIDTH, height: int = VIEWPORT_HEIGHT):
-    row_start = max(0, min(GRID_SIZE - height, player_row - height // 2))
-    col_start = max(0, min(GRID_SIZE - width, player_col - width // 2))
-    return row_start, col_start
-
-
 def read_viewport_grid(memory, width: int = VIEWPORT_WIDTH, height: int = VIEWPORT_HEIGHT):
-    """Returns (room, player_row, player_col, row_start, col_start, grid[row][col])
-    for a width x height window centered on the player."""
+    """Returns (room, player_row, player_col, grid[row][col]) for the width x height
+    window starting at row 0/col 0 - which is always the screen's top-left cell."""
     room = memory[ROOM_INDEX_ADDR]
     player_row = memory[PLAYER_ROW_ADDR]
     player_col = memory[PLAYER_COL_ADDR]
-    row_start, col_start = viewport_bounds(player_row, player_col, width, height)
-    grid = [
-        [read_cell(memory, room, row_start + r, col_start + c) for c in range(width)]
-        for r in range(height)
-    ]
-    return room, player_row, player_col, row_start, col_start, grid
+    grid = [[read_cell(memory, room, r, c) for c in range(width)] for r in range(height)]
+    return room, player_row, player_col, 0, 0, grid
 
 
 def col_letter(col: int) -> str:
