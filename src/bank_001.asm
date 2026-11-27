@@ -2916,6 +2916,13 @@ Call_001_4fe7:
     ret                                           ; $5002: $c9
 
 
+; $c125==4 handler (entered via $c126=8 from jr_000_371a after picking up a ground gold
+; pile): opens a popup window (Call_000_0e2d/Call_000_0260/Call_000_0e6d, the same window
+; open/draw/close trio used by other popups), then adds the rolled amount in $c515
+; (Call_001_50df_RollGoldAmount) to $c128 (wGoldCollected, BCD add via Call_000_0374).
+; This is the actual "picked up N gold" feedback - not a trap, despite $c515 being named
+; as a generic "event timer" elsewhere; here it's a gold amount.
+Jump_001_5003_ShowGoldPickup:
     call Call_000_0e2d                            ; $5003: $cd $2d $0e
     call Call_000_0260                            ; $5006: $cd $60 $02
     call Call_000_0e6d                            ; $5009: $cd $6d $0e
@@ -3037,6 +3044,13 @@ Call_001_50a2:
     jp Jump_000_348c                              ; $50dc: $c3 $8c $34
 
 
+; Rolls the gold amount for a ground gold pile (item type $10/$11, dispatched from
+; jr_000_371a) into $c515, which Jump_001_5003_ShowGoldPickup then adds to $c128
+; (wGoldCollected). Confirmed dynamically: picking up a type-$10 pile on `on_chest.state`
+; took $c128 from 0 to 1 while $c515 read back as 1 right after. Type $10 scales the roll
+; by current floor ($c104)/2+1; anything else reaching here (type $11) scales by
+; Lucky ($c123)/2 instead - two differently-sized gold pile variants, not a trap.
+Call_001_50df_RollGoldAmount:
     ld a, c                                       ; $50df: $79
     cp $10                                        ; $50e0: $fe $10
     jr nz, jr_001_50ef                            ; $50e2: $20 $0b

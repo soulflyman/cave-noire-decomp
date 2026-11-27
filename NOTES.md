@@ -1043,17 +1043,27 @@ A-Druck):
   gilt offenbar nur für die "Boden-Item sichtbar"-Klasse `$89`, nicht für die "Kiste mit Item
   drin"-Klasse `$0a`).
 - A-Druck **während man auf der Kiste steht** löst `jr_000_36e0` → (da Itemtyp `$10` einer der
-  Sonderfälle ist) `jr_000_371a` → `item_timer_50df` aus.
-- Das Item landet dabei **nicht im Inventar** — stattdessen wird nur `$c515` (Zufalls-Timer)
-  gesetzt. Dieser spezielle Itemtyp (`$10`) ist also vermutlich ein Fallen-/Sofort-Effekt-
-  Objekt, kein normales Sammelitem.
+  Sonderfälle ist) `jr_000_371a` → `Call_001_50df_RollGoldAmount` aus.
 
-**Schlussfolgerung:** Das hier bestätigte Verhalten ist ein **einstufiger** Pickup/Fallen-
-Mechanismus (ein A-Druck, fertig) — nicht die vom User beschriebene Zwei-Phasen-Kiste
-(öffnen → Item liegt sichtbar auf dem Feld → separat aufheben). Die echte "klassische" Kiste
-mit sichtbarem Öffnen-Dann-Aufheben-Ablauf wurde noch nicht gefunden; möglich, dass es sich um
-ein anderes Objekt handelt (z.B. ein echtes Sprite statt des `$d500`-Tile-Overlays), oder dass
-nur bestimmte Itemtypen (nicht `$10`/`$11`) dieses Verhalten zeigen — die Haupt-Branch von
-`jr_000_36e0` (für "normale" Itemtypen) wurde bereits früher gelesen und füllt das Inventar
-ebenfalls direkt in einem Schritt, ohne Zwischenstufe. Noch offen, wartet auf einen echten
-Savestate kurz vor einer sichtbaren, noch ungeöffneten Kiste.
+**Korrektur nach berechtigtem User-Einwand** ("ich hätte einen Vollbild-Screen erwartet, der
+anzeigt was man eingesammelt hat — komisch, dass nur ein Timer läuft"): Der vermeintliche
+"Fallen-Timer" war eine Fehlinterpretation. Der Code direkt nach `Call_001_50df_RollGoldAmount`
+(`jr_000_371a` setzt `$c126=8` → `Jump_000_351a_EnterGoldPickupPopup` → `$c125=4` →
+`Jump_001_5003_ShowGoldPickup` in `bank_001.asm`) öffnet tatsächlich ein Popup-Fenster
+(`Call_000_0e2d`/`Call_000_0260`/`Call_000_0e6d`, dasselbe Fenster-Öffnen/Zeichnen/Schließen-
+Trio wie bei anderen Popups) und addiert den in `$c515` abgelegten Wert direkt auf `$c128`
+(`wGoldCollected`, BCD-Addition). Dynamisch bestätigt: `$c128` sprang nach dem A-Druck von 0
+auf 1, exakt der in `$c515` gerollte Betrag. **Itemtyp `$10`/`$11` ist also schlicht ein
+Goldhaufen auf dem Boden** (Betrag skaliert mit Etagentiefe bzw. Lucky-Stat + Zufallsanteil),
+und das "Popup" ist die erwartete Rückmeldung — nur kein Vollbild-Screen, sondern ein
+Fenster/HUD-Popup mit SFX. Alle drei Stellen entsprechend umbenannt
+(`Call_001_50df_RollGoldAmount`, `Jump_000_351a_EnterGoldPickupPopup`,
+`Jump_001_5003_ShowGoldPickup`); Rebuild bleibt bit-identisch.
+
+**Weiterhin offen:** Die Haupt-Branch von `jr_000_36e0` (für "normale", nicht `$10`/`$11`-
+Itemtypen) füllt das Inventar direkt in einem Schritt ohne Zwischenstufe — passt also zu
+diesem einstufigen "Goldhaufen/Item"-Mechanismus, aber die vom User aus Live-Play
+beschriebene **Zwei-Phasen-Kiste** (öffnen → Item liegt sichtbar → separat aufheben) wurde
+damit noch nicht gefunden. Könnte ein eigenes Objekt sein (z.B. ein echtes Sprite statt des
+`$d500`-Tile-Overlays). Wartet auf einen echten Savestate kurz vor einer sichtbaren, noch
+ungeöffneten Kiste (nicht nur einem losen Boden-Item).

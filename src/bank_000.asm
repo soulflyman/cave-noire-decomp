@@ -9576,6 +9576,10 @@ jr_000_34ff:
     jp Jump_000_32ff                              ; $3517: $c3 $ff $32
 
 
+; $c126==8 ($c240 table entry, reached from jr_000_371a after a ground gold pile is picked
+; up): hands off to $c125=4 (Jump_001_5003_ShowGoldPickup in bank_001.asm, the actual
+; "gold added" popup).
+Jump_000_351a_EnterGoldPickupPopup:
     ld a, $04                                     ; $351a: $3e $04
     ld [$c125], a                                 ; $351c: $ea $25 $c1
     jp $5003                                      ; $351f: $c3 $03 $50

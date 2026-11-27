@@ -30,19 +30,22 @@ story:
 - Pressing **A** while standing on it calls `jr_000_36e0`. For "normal" item type IDs, this
   adds the item straight to the inventory in one step (compacts the inventory, finds a free
   slot, copies the item byte, clears the tile) - no separate ground-drop phase.
-- For item type IDs `$10`/`$11` specifically, it instead branches to `jr_001_50df`, which
-  sets `$c515` (the RNG-derived event timer used elsewhere for item effects) and does **not**
-  add anything to the inventory - this looks like an immediate trap/effect trigger, not a
-  collectible.
+- For item type IDs `$10`/`$11` specifically, it instead branches to `jr_000_371a` →
+  `Call_001_50df_RollGoldAmount`, which rolls an amount into `$c515` (scaled by current
+  floor for `$10`, by Lucky for anything else landing here) and then
+  `Jump_000_351a_EnterGoldPickupPopup` → `Jump_001_5003_ShowGoldPickup` opens a popup window
+  and adds that amount straight to `$c128` (`wGoldCollected`) - i.e. **`$10`/`$11` are loose
+  gold piles lying on the floor**, not inventory items. Confirmed dynamically: `$c128` went
+  from 0 to 1 right after the A press, matching the rolled `$c515` value. (An earlier version
+  of this page mis-read `$c515` as a generic trap timer - it's the gold amount here.)
 
-So the `$d500` overlay mechanism, at least for the one tile type tested (type `$10` in a
-Gold quest, level 1, reached via a reproducible savestate - see below), is a single-A-press
-interaction, not the two-phase open-then-collect flow described from live play. The real
-two-phase chest (visually distinct, closed sprite; opening drops an item that needs a
-*separate* walk+A to collect) has not been located yet - it may be a different object
-entirely (e.g. an actual sprite rather than this background-tile overlay), or only certain
-item types exhibit it. Needs a savestate standing right in front of a still-closed,
-visually distinct chest to test properly.
+So the `$d500` overlay mechanism, at least for the tile types tested, is a single-A-press
+interaction (either "add to inventory" or "add to gold"), not the two-phase open-then-collect
+flow described from live play. The real two-phase chest (visually distinct, closed sprite;
+opening drops an item that needs a *separate* walk+A to collect) has not been located yet -
+it may be a different object entirely (e.g. an actual sprite rather than this
+background-tile overlay), or only certain non-gold item types exhibit it. Needs a savestate
+standing right in front of a still-closed, visually distinct chest to test properly.
 
 ### No real "dungeon seed" exists, but the RNG state is directly reproducible
 
