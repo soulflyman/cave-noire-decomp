@@ -80,9 +80,14 @@ fastest way to contribute.
   `$09`/`$0b`/`$0c`/`$0e`/`$13`/`$20` (see [Item System](Item-System) "Partially understood"
   for what each one's code actually does - a real master dispatch table was found at
   `Call_001_5190_ItemUseEffectDispatch`, bank 1 `$5190`). `$14` = Kagi is a confident static
-  deduction from that same table but still not live-confirmed. For each: a savestate with
-  that specific item in inventory (`wInventory`, `$c140`-`$c147`), then use it and watch
-  what actually happens on screen.
+  deduction from that same table but still not live-confirmed. `$13` and `$20` are now also
+  fully traced statically: `$13` scans all 36 monster slots for a type match against
+  `$c420` and decrements a per-room/per-type counter for each hit (plausible repel/banish
+  effect); `$20` **increments its own inventory slot in place** (turning it into the
+  never-otherwise-seen item `$21`) and then scans the room's tiles for something before
+  showing a visual effect - unusually, it's not a normal "use and consume" item at all. For
+  each: a savestate with that specific item in inventory (`wInventory`, `$c140`-`$c147`),
+  then use it and watch what actually happens on screen.
 - **Still fully unidentified**: Tobu (warp), Gold (no slot - see `$10`/`$11` in
   [Dungeon Mechanics](Dungeon-Mechanics) for the likely actual candidates).
 - **Raw tile `$22`**: statically deduced to be the Fairy Cage (item `$14`/Kagi's effect
