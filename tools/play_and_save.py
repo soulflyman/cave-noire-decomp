@@ -26,9 +26,17 @@ At startup the script asks whether you want to resume from one of the savestates
 scratch/states/ (listed newest-first) or start the ROM fresh - answer with a number or
 just hit Enter for a fresh start.
 
+Pass --grid to open a second window: a 16x16 chessboard-style grid (columns A-P, rows
+1-16) of the current room, decoded live from RAM exactly like the game's own renderer
+(see tools/tile_grid.py). Plain terrain tiles show as ".xx" (raw tile ID); an item or
+chest overlay shows as " xx " (lying exposed) or "[xx]" (still a closed chest, xx = slot
+not item type); the player's own cell is marked "@@". Handy for matching what's on
+screen to the raw IDs behind it - e.g. to find item type $12 from the last reverse-
+engineering session.
+
 Usage:
     source .venv/bin/activate
-    python3 tools/play_and_save.py ["rom/Cave Noire (Japan).gb"] [out_prefix] [--mute|--volume N]
+    python3 tools/play_and_save.py ["rom/Cave Noire (Japan).gb"] [out_prefix] [--mute|--volume N] [--grid]
 """
 import argparse
 import shutil
@@ -76,6 +84,7 @@ def main():
     parser.add_argument("out_prefix", nargs="?", default="save")
     parser.add_argument("--mute", action="store_true", help="Disable sound entirely")
     parser.add_argument("--volume", type=int, default=100, help="Sound volume 0-100 (default 100)")
+    parser.add_argument("--grid", action="store_true", help="Open the live tile/item ID grid window")
     args = parser.parse_args()
 
     rom_path = Path(args.rom)
@@ -107,7 +116,15 @@ def main():
             pyboy.load_state(f)
         print(f"Resumed from {resume_state}")
 
+    grid_window = None
+    if args.grid:
+        from tile_grid_window import TileGridWindow
+
+        grid_window = TileGridWindow()
+        print("Grid window opened - showing the current room's tile/item IDs.")
+
     count = 0
+    tick_n = 0
     try:
         while pyboy.tick():
             if state_file.is_file():
@@ -118,6 +135,12 @@ def main():
                     dest = OUT_DIR / f"{out_prefix}_{count:03d}.state"
                     shutil.copyfile(state_file, dest)
                     print(f"Saved -> {dest}")
+
+            if grid_window is not None:
+                tick_n += 1
+                if tick_n % 10 == 0:
+                    if not grid_window.pump(pyboy.memory):
+                        grid_window = None  # window was closed
     except KeyboardInterrupt:
         pass
     finally:
