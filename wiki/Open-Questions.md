@@ -56,15 +56,25 @@ fastest way to contribute.
 
 ## Monster system ([Monster System](Monster-System))
 
-- **Monster type → stats table**: only type `$01` (Crab) has been confirmed via real
-  combat. The other 22 StrategyWiki monster types each need a savestate with a visible,
-  undamaged specimen (to read struct offsets `$06`/`$09`) and a few turns of observation (to
-  confirm movement pattern).
-- **Struct offsets `$05`/`$07`/`$08`** (always `2`/`4`/`2` for Crab so far): need at least
-  one more monster type to tell whether these are per-type attack/defense/lucky-like
-  attributes or constants across all types.
-- **Offset `$00`'s value** (always `6` for a living monster so far): needs a different
-  monster type to check whether this varies.
+- **Monster type → stats table**: type `$01` (Crab) confirmed via real combat; type `$03`
+  (Tarantula) confirmed via its distinctive room-wide patrol movement; a stationary HP-5
+  type `$02` narrowed down to Barokusu or Bukirika but not told apart yet. ~20 StrategyWiki
+  types still unidentified, each needing a savestate with a visible, undamaged specimen.
+- **A `$01`-type conflict**: a second creature sharing Crab's type byte (`$01`) but with
+  HP 8 instead of Crab's confirmed 5 turned up in two savestates. Needs a live combat test
+  (HP-decrease tracking, as used for Crab) to figure out whether it's a real variant or a
+  misread.
+- **Multi-tile ("big") monsters**: confirmed to exist (a two-headed, two-tile-wide monster
+  rendered via 4 OAM sprites instead of the usual 2), but their struct layout hasn't been
+  traced at all - the small-monster struct doesn't obviously apply (one field that's always
+  `0` for small monsters read `16` here).
+- **Struct offsets `$05`/`$07`/`$08`**: `2`/`4`/`2` for Crab, `1`/`4`/`2` for both newly
+  confirmed types so far - looks like `$07` might be constant and `$05`/`$08` vary by type,
+  but still needs more data points.
+- **Offset `$00`'s value**: confirmed to vary a lot (`6` for Crab, others seen `3`-`7`, plus
+  `18`/`19`/`22` for non-monster entries sharing the same array) - no pattern identified yet.
+- **Non-monster entries in the monster array**: confirmed to exist (static, no OAM sprite,
+  `$00` values like `19`/`22`/`18`) but their purpose is completely unknown.
 
 ## Item system ([Item System](Item-System))
 

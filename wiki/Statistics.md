@@ -79,7 +79,7 @@ unmapped. This is the biggest open area of the project.
 | Base per-level stats table | ✅ Confirmed |
 | Player death / Game Over trigger | ✅ Confirmed (2 of 3 call sites; 3rd site's gating condition not fully traced) |
 | Monster struct layout (position, HP field) | ✅ Confirmed |
-| Monster type → stats table (23 types in the wiki) | 🟡 1 of 23 types identified (type `$01` = Crab) |
+| Monster type → stats table (23 types in the wiki) | 🟡 2 of 23 types confirmed (type `$01` = Crab, `$03` = Tarantula), plus a likely `$02` = Barokusu/Bukirika (not yet narrowed to one) |
 | Inventory system (8 slots, helper routines) | ✅ Confirmed |
 | Item type IDs (~25 items in the wiki) | 🟡 7 of ~25 identified |
 | Dungeon tile-class dispatcher (stairs, pickup, warp) | ✅ Confirmed (stairs/pickup), 🟡 plausible (warp, not dynamically tested) |

@@ -206,6 +206,11 @@ The StrategyWiki describes rooms where darkness covers the floor beyond 1-2 tile
 player, monsters show only as a pair of eyes until approached, and the `Akari` item (or
 defeating a Flame Eye) removes it.
 
+**The Flame-Eye part is now confirmed from live play too**, not just the StrategyWiki
+claim: in a dark room with a hidden monster shown only as the eye-pair sprite (OAM tile
+`140`), defeating it made the whole room light up immediately, the same effect as using
+Akari. Matches the community description exactly.
+
 **Confirmed**, using a real savestate from floor B4F (deep enough to have darkness active,
 provided by the user via `tools/play_and_save.py`):
 

@@ -1322,3 +1322,43 @@ Die drei-Felder-breite "?"-Anzeige selbst (die visuelle Warnung, bevor man anlä
 nicht bis zur exakten Render-Routine zurückverfolgt — aber der eigentliche Öffnungs-
 Mechanismus (das, worum es dem User ging) ist jetzt vollständig im Code belegt und per
 Rebuild bit-identisch verifiziert (`10d92861e262069ce31559e12b927aa0`).
+
+## Fünf neue Monster-Savestates ausgewertet (`save_004`, `save_006`–`save_009`)
+
+User hat eine zweite kurze BDM-Spielsession gemacht und mehrere Savestates mit neuen
+Monstern geliefert. Monster-Array (`$c5c0`-`$c800`, 16 Byte/Slot) jeweils ausgelesen und mit
+Bewegung/OAM/Screenshots gegengeprüft:
+
+- **`save_004`** (Spinne + "Minotaurus" laut User): Typ `3` (Offset `$01`) läuft über 40
+  Spielzüge in einer großen Schleife um fast den ganzen Raum — exakt "moves counterclockwise
+  around room" aus dem StrategyWiki-Eintrag zu **Tarantula** (HP 6, Offset `$06`=6 stimmt
+  exakt). Der zweite ("Minotaurus"-vermutete) Typ `2` bewegte sich dagegen in 70+ Zügen
+  **kein einziges Mal**, auch nicht direkt daneben stehend — das widerspricht der
+  StrategyWiki-Beschreibung von Minotaur (bewegt sich, nur in kleiner Schleife). Offset
+  `$06`=5 passt stattdessen zu **Barokusu** oder **Bukirika** (beide HP 5, beide "does not
+  move" laut Wiki) — welches der beiden genau, bleibt offen.
+- **`save_006`**: derselbe unbewegliche Typ-`2`-Gegner, jetzt unten rechts in der Ecke,
+  visuell ein rundlicher, dunkler Klumpen — passt gut zu "Felsbrocken"/"maulwurfartig"
+  (Barokusu wird extern als "mole looking thing" beschrieben).
+- **`save_007`**: Skelett (Totenkopf-Sprite, visuell bestätigt) plus ein verstecktes
+  "Feuerball"-Monster im unaufgedeckten (dunklen) Bereich — als Augenpaar-Sprite (OAM-Tile
+  `140`) dargestellt, exakt das aus der Dunkelheits-Mechanik bekannte Muster. User hat live
+  bestätigt: **Wird dieses Monster besiegt, wird der Raum sofort hell wie durch Akari** —
+  damit ist die StrategyWiki-Behauptung "defeating a Flame Eye removes darkness" jetzt nicht
+  mehr nur Hypothese, sondern live bestätigt. Zusätzlich aufgefallen: ein Slot mit Offset
+  `$01`=1 (derselbe Typ-Byte wie Crab) aber Offset `$06`=8 HP statt Crabs bestätigten 5 —
+  Widerspruch zur bisherigen Typ-1-Identifikation, noch ungeklärt (vermutlich reicht ein
+  echter Kampftest zur Klärung, wie damals bei Crab).
+- **`save_008`**: User vermutete einen "Tausenfüßler" — das sichtbare Monster lag aber genau
+  dort, wo laut Positionsdaten wieder Typ `3` (Tarantula) stand; das Sprite sieht bei dieser
+  Auflösung tatsächlich wurmartig/segmentiert aus. Vermutlich dieselbe Tarantula-Art,
+  optisch nur leicht täuschend.
+- **`save_009`**: ein zweiköpfiges, zwei Felder breites Monster (User-Beschreibung, laut
+  Statistik eventuell **Hydra**) — wird über **4 OAM-Sprites** gerendert statt der üblichen 2
+  bei kleinen Monstern. Der zugehörige Array-Eintrag hat einen untypischen Wert an Offset
+  `$04` (`16` statt sonst immer `0`) — große Monster nutzen vermutlich ein eigenes,
+  erweitertes Struct-Layout, das noch nicht nachvollzogen wurde.
+
+Außerdem erneut bestätigt: einige Array-Slots sind **keine Monster**, sondern andere
+Raum-Objekte, die sich dasselbe 16-Byte-Array teilen (Offset `$00` z.B. `19` oder `22`,
+kein zugehöriges OAM-Sprite, bewegen sich nie). Noch nicht identifiziert, wofür sie stehen.
