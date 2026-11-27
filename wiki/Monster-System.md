@@ -64,14 +64,49 @@ confirmed Crab fight. Whether `$09` is a different static stat (attack power is 
 leading guess) or whether spawned values get scaled by dungeon depth before use (which
 could reconcile things) is not confirmed either way.
 
-This also puts the earlier "non-monster entries" conclusion in doubt: slots seen with
-class values `18`/`19`/`22` (previously assumed to be room decorations reusing the
-array, since no matching OAM sprite or movement was observed in those specific tests)
-turn out to have completely ordinary-looking stat records in this table (e.g. class 19:
-`[0,1,7,4,2,3]`, indistinguishable in shape from confirmed real monsters). They may well
-be real monsters after all that simply weren't rendered/moving in that particular
-capture window, rather than a separate "decoration" system - needs re-checking with a
-longer live observation.
+This also resolves the earlier "non-monster entries" doubt: cross-checking every class
+value seen live (`4`, `3`, `19`, `5`, `18`) against this table byte-for-byte (offsets
+`$05`-`$09`; offset `$04` is the runtime blink toggle and legitimately varies) confirms
+an **exact match in every case**, including classes `18`/`19`/`22`. These are ordinary
+monster classes, not a separate decoration system - the "no OAM/movement observed" cases
+were just short capture windows, not a different mechanism.
+
+The multi-tile ("big", 4-OAM) monster seen in save_009 is **class 18**
+(`[16, 1, 8, 6, 2, 5]`), confirmed by exact byte match against its live struct. Its
+offset `$04` = `16` (vs. `0` for every small-monster class) is simply that class's table
+value, not evidence of a different struct layout - the 16-byte struct is the same for
+every class. Whatever offset `$04` is "supposed to be" at rest clearly isn't always `0`;
+it still gets XOR'd with offset `$05` for the blink animation on top of that base value.
+
+## Type -> class resolution (found)
+
+There is **no single static "type ID -> class index" ROM table**. Traced the chain that
+actually produces the class value (`$c224`) at spawn:
+
+1. `Call_001_4997` (bank 1, `$4997`) iterates the 9 slots of the shared per-floor
+   placement table at `$c300` (32-byte stride, same table the item-placement loop
+   reads). Each slot's first byte, if nonzero, is a monster type ID, passed to
+   `Call_001_49ad`.
+2. `Call_001_49ad` (bank 1, `$49ad`) stages it as `$c201` and calls `Call_000_135d`
+   (bank 0, `$135d`), which does two nested lookups:
+   - `[$c202]` indexes a word table at (bank 3) `$6a75` to find a per-quest/floor
+     4-byte header, copied to `$c441`.
+   - `[$c201]` (the type) indexes a WRAM table at `$c448` to pick a bucket `0`-`7`,
+     which then selects one of 8 four-byte sub-records out of `$c441`, copied to
+     `$c445`.
+3. `Call_001_49d0` reads `$c445[$c220]` (one byte per compass direction) into `c`, then
+   calls `Call_001_4a48` with `b = [$c201]` (type) still carried along.
+4. `Call_001_4a48` writes `c` into `$c224` (class) and `b` into `$c227` (type) - two
+   independent fields from the *same* per-quest/floor encounter descriptor, not one
+   derived from the other.
+
+So type and class are both supplied directly by the room/quest's own encounter data
+(itself a ROM template copied into WRAM per floor, the same architecture as the item
+pool's quest/level templates - see [Item System](Item-System)), rather than one being
+looked up from the other via a dedicated mapping table. `$c448` is itself WRAM, so it's
+presumably refilled per floor too; tracing its exact population wasn't needed to settle
+the original question since the final class values already verify byte-for-byte against
+every live capture (see above).
 
 ## How the HP field was confirmed
 
@@ -106,22 +141,30 @@ StrategyWiki monster table exactly:
 
 > **Crab**: HP 5, moves left and right
 
-High confidence: **monster type `$01` = Crab**.
+High confidence: **monster type `$01` = Crab**, confirmed to use stat **class `6`**
+(`[0, 2, 5, 4, 2, 5]`) - the only class whose `$05`-`$09` tuple matches the two live
+combat logs above exactly.
 
 ## More types identified (savestates from a second BDM play session)
 
 - **Monster type `$03` = Tarantula.** HP `6` (offset `$06`), matching the StrategyWiki entry
-  exactly. Movement, tracked over 40 player turns with no fighting: a large loop tracing
-  almost the entire perimeter of the room, never settling - matches "moves counterclockwise
-  around room" far better than Minotaur's small 4-square loop. Seen consistently across two
-  independent savestates.
+  exactly, and matching stat **class `3`** (`[0, 1, 6, 4, 4, 3]`) byte-for-byte. Movement,
+  tracked over 40 player turns with no fighting: a large loop tracing almost the entire
+  perimeter of the room, never settling - matches "moves counterclockwise around room" far
+  better than Minotaur's small 4-square loop. Seen consistently across two independent
+  savestates.
 - **Monster type `$02` = stationary "boulder"-looking monster, not Minotaur.** HP `5`
-  (offset `$06`), and confirmed to **never move**, even across 70+ player turns including
-  several turns spent standing directly adjacent to it. This rules out Minotaur (which
-  StrategyWiki documents as moving, just in a small loop). Both `5`-HP non-moving
-  StrategyWiki entries are candidates - **Barokusu** or **Bukirika** - and the round,
-  dark, "mole"/"boulder"-like look of the sprite leans towards one of those two rather
-  than anything humanoid. Not yet disambiguated between the two.
+  (offset `$06`), matching stat **class `4`** (`[0, 1, 5, 4, 2, 3]`) byte-for-byte, and
+  confirmed to **never move**, even across 70+ player turns including several turns spent
+  standing directly adjacent to it. This rules out Minotaur (which StrategyWiki documents
+  as moving, just in a small loop). Both `5`-HP non-moving StrategyWiki entries are
+  candidates - **Barokusu** or **Bukirika** - and the round, dark, "mole"/"boulder"-like
+  look of the sprite leans towards one of those two rather than anything humanoid. Not yet
+  disambiguated between the two.
+- A third creature in the same savestate used **class `19`** (`[0, 1, 7, 4, 2, 3]`, HP `7`)
+  - a plausible candidate for the real, moving Minotaur (distinct HP from both Crab and the
+    boulder monster), but its type ID/movement weren't captured separately - needs a
+    dedicated savestate to confirm.
 - **Unresolved conflict - a second, distinct `$01`-type creature:** two further savestates
   each contained an entry with offset `$01` = `1` (same type byte as Crab) but a completely
   different stat block (`$06`=`8` HP instead of Crab's `5`, offset `$07`=`5` instead of `4`)
@@ -143,22 +186,13 @@ High confidence: **monster type `$01` = Crab**.
 
 ## What's still open
 
-- **Mapping class index -> StrategyWiki species name.** The class table is found, but
-  class index isn't the same thing as the `$01` type ID (type `$01`=Crab presumably uses
-  one specific class, but which one isn't confirmed - the live Crab fight data doesn't
-  cleanly match any single class record above, see "The stat table, found"). Needs either
-  a live read of `$c224` right at spawn time for a known species, or a separate table
-  mapping type ID -> class index that hasn't been located yet.
 - **What offset `$09` actually is**, given it's confirmed to not just duplicate current
   HP - needs a live combat test on a monster whose class record has `$09` clearly
   different from `$06`, to see if it's attack power, defense, or something else.
 - Whether `$02` (the stationary "boulder" monster) = Barokusu or Bukirika (both HP 5,
   both non-moving) — need a clearer sprite reference or a savestate with both present.
-- The `$01`-type HP-8 variant vs. the confirmed HP-5 Crab — needs a live combat test.
-- The big/multi-tile monster struct layout (4-OAM creatures) — needs tracing from scratch,
-  probably a different code path than the small-monster one documented above.
-- Re-check whether class values `18`/`19`/`22` really are non-monster decorations or just
-  ordinary monsters that weren't observed moving/weren't visible in those specific tests
-  (see "The stat table, found").
+- The `$01`-type HP-8 variant vs. the confirmed HP-5 Crab — needs a live combat test
+  (Crab's confirmed class is `6`, HP `5` - the HP-8 variant should be a different class;
+  check which one at spawn time).
 
 See [Open Questions](Open-Questions) for what kind of savestate would help close these gaps.

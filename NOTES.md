@@ -1499,3 +1499,28 @@ Noch offen: welcher Klassen-Index zu welcher Typ-ID (und damit zu welchem
 StrategyWiki-Monster) gehört — das ist eine andere Tabelle, die noch nicht gefunden
 wurde. Code kommentiert in `src/bank_000.asm`/`bank_001.asm`, volle Tabelle in
 `wiki/Monster-System.md`. Rebuild bleibt bit-identisch.
+
+## Typ→Klasse-Zuordnung gefunden: keine feste Tabelle, sondern Encounter-Daten
+
+Weiter nachverfolgt, woher die Klasse (`$c224`) beim Spawn tatsächlich kommt:
+`Call_001_4997` (Bank 1) liest pro Floor-Slot aus der gemeinsamen `$c300`-Tabelle
+(dieselbe, die auch die Item-Platzierung nutzt) einen Typ-Byte und reicht ihn an
+`Call_001_49ad` weiter. Diese Funktion ruft `Call_000_135d` (Bank 0) auf, die zwei
+verschachtelte Lookups macht: erstens `[$c202]` indiziert eine Wort-Tabelle in Bank 3
+(`$6a75`) für einen Quest/Floor-spezifischen 4-Byte-Header; zweitens `[$c201]` (der Typ)
+indiziert eine WRAM-Tabelle (`$c448`), die einen von 8 Sub-Datensätzen aus diesem Header
+auswählt. Der ausgewählte Wert landet über `Call_001_49d0`/`Call_001_4a48` direkt in
+`$c224` (Klasse), während der ursprüngliche Typ-Wert unverändert nach `$c227` (Typ)
+geschrieben wird.
+
+Es gibt also **keine einzelne globale "Typ-ID → Klasse"-ROM-Tabelle** — beide Werte
+kommen stattdessen direkt aus den pro Quest/Floor generierten Encounter-Daten des Raums,
+genau wie beim Item-Pool (siehe Item-System-Notiz oben). Per Byte-Vergleich bestätigt:
+Krabbe (Typ `$01`) nutzt Klasse `6`, Tarantula (Typ `$03`) Klasse `3`, das stationäre
+"Felsbrocken"-Monster (Typ `$02`) Klasse `4` — alle Werte matchen exakt mit den
+Live-Captures aus den Savestates. Die früher als "Raum-Deko" vermuteten Klassen
+`18`/`19`/`22` sind damit auch endgültig als normale Monster-Klassen bestätigt (exakter
+Byte-Match), inklusive des zweiköpfigen Multi-Tile-Monsters aus save_009 (Klasse `18`) —
+dessen ungewöhnlicher Offset-`$04`-Wert (`16`) ist einfach der normale Tabellenwert
+dieser Klasse, kein Hinweis auf ein abweichendes Struct-Layout. Dokumentiert in
+`wiki/Monster-System.md`. Keine Code-Änderung, nur Doku.

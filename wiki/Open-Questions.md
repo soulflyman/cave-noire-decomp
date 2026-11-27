@@ -56,28 +56,23 @@ fastest way to contribute.
 
 ## Monster system ([Monster System](Monster-System))
 
-- **Monster type → stats table**: the per-class stat table itself is now fully decoded
-  (32 classes, see [Monster System](Monster-System) "The stat table, found") - what's
-  missing is the type-ID-to-class mapping. Type `$01` (Crab) confirmed via real combat;
-  type `$03` (Tarantula) confirmed via its distinctive room-wide patrol movement; a
-  stationary HP-5 type `$02` narrowed down to Barokusu or Bukirika but not told apart
-  yet. ~20 StrategyWiki types still unidentified, each needing a savestate with a
-  visible, undamaged specimen plus a live read of `$c224` (the class index) at spawn.
+- ~~**Monster type → stats table**~~ — resolved: the per-class stat table is fully decoded
+  (32 classes), and there's no single static type→class table - class and type are both
+  supplied directly by the room/quest's own encounter descriptor data at spawn time (see
+  [Monster System](Monster-System) "Type -> class resolution"). Crab (`$01`) = class `6`,
+  Tarantula (`$03`) = class `3`, the stationary boulder (`$02`) = class `4`, all confirmed
+  byte-for-byte against live captures. ~20 StrategyWiki types still unidentified, each
+  needing a savestate with a visible, undamaged specimen.
 - **What struct offset `$09` actually is**: confirmed from the stat table to generally
   differ from current HP (`$06`), contradicting the old "max HP" assumption - needs a
   live combat test on a class where they clearly differ, to narrow down what it affects.
 - **A `$01`-type conflict**: a second creature sharing Crab's type byte (`$01`) but with
   HP 8 instead of Crab's confirmed 5 turned up in two savestates. Needs a live combat test
   (HP-decrease tracking, as used for Crab) to figure out whether it's a real variant or a
-  misread.
-- **Multi-tile ("big") monsters**: confirmed to exist (a two-headed, two-tile-wide monster
-  rendered via 4 OAM sprites instead of the usual 2), but their struct layout hasn't been
-  traced at all - the small-monster struct doesn't obviously apply (one field that's always
-  `0` for small monsters read `16` here).
-- **Whether class values `18`/`19`/`22` are really non-monsters**: previously assumed to
-  be room decorations (no OAM sprite/movement seen in those specific tests), but the stat
-  table shows completely ordinary-looking records for those classes - may just be real
-  monsters not observed long enough. Needs a longer live observation.
+  misread - and which stat class it uses (Crab's is `6`).
+- A possible **real Minotaur**: a third creature in a Crab/boulder savestate used class
+  `19` (HP `7`, distinct from both). Needs its own savestate to confirm type ID and
+  movement pattern.
 
 ## Item system ([Item System](Item-System))
 
