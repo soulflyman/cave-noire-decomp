@@ -953,3 +953,58 @@ erzeugen), und dabei folgende Interaktionsmuster per Hand bestätigt:
 
 Entsprechend in `wiki/Combat-System.md`, `wiki/Dungeon-Mechanics.md` und
 `wiki/Controls-and-Menus.md` nachgezogen. Reiner Dokumentations-Fund, keine Code-Änderung.
+
+## Angriffs-Auswahl-Mechanik im Code nachvollzogen (statisch + dynamisch über PyBoy-Hooks)
+
+Auf berechtigte Kritik hin ("nicht nur ins Wiki schreiben, sondern im Code nachvollziehen")
+den oben beschriebenen Select-dann-Confirm-Mechanismus tatsächlich im Disassembly gesucht
+und mit `pyboy.hook_register` (Breakpoint-Callback auf eine Bank:Adresse) dynamisch
+verifiziert, statt nur die Spielbeobachtung zu übernehmen.
+
+**Methode:** Auf `combat2.state` (Spieler direkt neben Monster-Slot 0, Typ `$01`/Crab)
+Hooks auf diverse Kandidaten-Adressen gesetzt, dann die reale Eingabesequenz
+(`button_press('down')` → mehrere Ticks → `button_release` → `button_press('a')` → Ticks)
+abgespielt und beobachtet, welche Adressen tatsächlich getroffen werden und wie sich
+`$c125`/`$c126`/`$c523`/`$c524`/Monster-HP (Offset `$06`) dabei verändern.
+
+**Ergebnis — zwei verschachtelte Zustandsautomaten, beide über `RST_00`-Sprungtabellen:**
+
+1. `$c125` ist der "Hauptzustand" (Tabelle bei `$3360` in `bank_000.asm`, 24 Einträge,
+   `Call_000_3355` liest `$c125` und springt per `rst RST_00`). Zustand `6` = "Ziel-Auswahl
+   aktiv" (Handler `Call_000_3bae`), Zustand `12` = "Angriff/Pickup ausführen"
+   (`Jump_001_5a59_ConfirmAttackOrPickup` in `bank_001.asm`, Eintrag 12 der Tabelle = `$5a59`).
+2. Innerhalb von Zustand `6` liest `Call_000_3bc6` den zuletzt neu gedrückten Knopf (`$c512`,
+   0=keiner, 1-4=Richtungen, 5=A, 6=B, codiert von `Call_000_3392`) und springt wiederum per
+   `rst RST_00` in `Call_000_3c4f_TrySelectDirection` (Richtung), `Jump_000_3c7f_ConfirmAttack`
+   (A) oder `Jump_000_3c85_CancelTargeting` (B).
+3. `Call_000_3c4f_TrySelectDirection` prüft für die gedrückte Richtung per
+   `Call_001_57db`/`Call_000_2f28` (Monster-Slot-Scan) bzw. `Call_000_35ef` (Bodenitem-Check),
+   ob dort tatsächlich ein Ziel sitzt — nur dann wird die Richtung als neues Ziel übernommen
+   (`jr_000_3c72`, setzt `$c126=1`). Das ist **exakt** das vom User beschriebene "erneuter
+   Richtungsdruck selektiert den Gegner" — mit echter Existenzprüfung, kein reines Hinlaufen.
+4. `Jump_000_3c7f_ConfirmAttack` setzt nur `$c126=3`; der äußere Dispatch in `Call_000_3bae`
+   (zweite `rst RST_00`-Tabelle bei `$3bbe`, indiziert über `$c126`) löst das in
+   `Jump_000_3c38_ConfirmAttack` auf, was `$c125=12` setzt — der eigentliche Angriffszustand.
+5. `Jump_001_5a59_ConfirmAttackOrPickup` (Zustand 12) unterscheidet über `$c524` (Bit 7 =
+   "Bodenitem", sonst `<2`=kein gültiges Ziel/`>=2`=Monster-Slot+2) zwischen Boden-Pickup
+   (`Jump_001_4f3d`) und echtem Angriff; bei Angriff wird `$c523=1` (Spieler = Angreifer)
+   gesetzt und `Call_001_5c00` (→ `Call_001_5c47`/`Call_001_5c75`, die bereits bekannte
+   Schadensformel) aufgerufen.
+
+**Dynamischer Beweis:** Hook auf `$5a59` feuerte exakt beim A-Druck mit `$c523=1`, `$c524=2`
+(Monster-Slot 0 = Slot-Index 0 + 2), direkt gefolgt von `Call_001_5c00`/`5c47`/`5c75`; Monster-
+Struct Offset `$06` fiel von 5 auf 4 (Schaden 1) im selben Zug. `$c125` war zu diesem
+Zeitpunkt bereits auf 12 gesprungen — identisch zum statisch gefundenen Tabelleneintrag.
+
+**Offen:** Wie der Spieler überhaupt in Zustand `$c125=6` hineinkommt (vermutlich ein
+automatischer Übergang beim Erkennen eines adjazenten Monsters/Items nach einem
+Bewegungsschritt, noch nicht zurückverfolgt), und die genaue Bedeutung von `$4f0e`
+(liefert laut `Call_000_35ef` den "l"-Wert, der mit `$80` kombiniert in `$c524` landet —
+vermutlich eine Bodenitem-Positions-zu-Index-Auflösung).
+
+Alle Label-Ergänzungen (`Jump_000_3c32_CommitTargetSelection`, `Jump_000_3c38_ConfirmAttack`,
+`Jump_000_3c49_NoInputWhileTargeting`, `Call_000_3c4f_TrySelectDirection`,
+`Jump_000_3c7f_ConfirmAttack`, `Jump_000_3c85_CancelTargeting`,
+`Jump_001_5a59_ConfirmAttackOrPickup`) sind reine Label/Kommentar-Ergänzungen an bereits
+korrekt disassemblierten Code (keine `db`-Konvertierung nötig). Rebuild bleibt bit-identisch
+(MD5 `10d92861e262069ce31559e12b927aa0`).

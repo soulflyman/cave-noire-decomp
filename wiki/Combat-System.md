@@ -2,8 +2,9 @@
 
 ## Targeting is a two-step select-then-confirm, and there is no hit/miss roll
 
-Combat is **not** a simple bump-attack. Confirmed via live play (Beaten Dying Moon
-emulator), the actual sequence is:
+Combat is **not** a simple bump-attack. First observed via live play (Beaten Dying Moon
+emulator) and then traced in the disassembly and confirmed dynamically with PyBoy
+breakpoint hooks (`pyboy.hook_register`) on `combat2.state`, the actual sequence is:
 
 1. Walk up to stand adjacent to one or more monsters.
 2. Press the direction toward the monster you want to target — this doesn't move you (you're
@@ -16,6 +17,37 @@ So targeting takes a direction press *and* a separate A press — simply walking
 monster's tile does not attack by itself. Every attack executed this way lands; there is
 **no accuracy/miss chance anywhere in the game**. This was confirmed on both sides of
 combat:
+
+### The code behind it
+
+Two nested state machines, both dispatched through `RST_00` jump tables (the "second jump
+trampoline", see below):
+
+- `$c125` is the main state (24-entry table at `$3360` in `bank_000.asm`). State `6` =
+  "adjacent target selection active" (`Call_000_3bae`); state `12` =
+  "execute attack/pickup" (`Jump_001_5a59_ConfirmAttackOrPickup`, bank 1).
+- Inside state 6, `Call_000_3bc6` reads the newly-pressed button (`$c512`) and jumps to
+  `Call_000_3c4f_TrySelectDirection` (a direction), `Jump_000_3c7f_ConfirmAttack` (A), or
+  `Jump_000_3c85_CancelTargeting` (B).
+- `Call_000_3c4f_TrySelectDirection` checks, for the pressed direction, whether a monster
+  (`Call_001_57db`/`Call_000_2f28`, a monster-slot scan) or a ground item (`Call_000_35ef`)
+  is actually there — only then is that direction accepted as the new target
+  (`jr_000_3c72`, sets `$c126=1`). This is the exact "pressing a direction selects the
+  monster" behavior, with a real adjacency check — not just a cosmetic move.
+- `Jump_000_3c7f_ConfirmAttack` (A pressed) just sets `$c126=3`; the outer dispatch in
+  `Call_000_3bae` (a second `RST_00` table at `$3bbe`, indexed by `$c126`) resolves that to
+  `Jump_000_3c38_ConfirmAttack`, which sets `$c125=12` — the real attack state.
+- `Jump_001_5a59_ConfirmAttackOrPickup` (state 12) branches on `$c524`: bit 7 set means the
+  target is a ground item (jumps into the pickup code, `Jump_001_4f3d`); otherwise `$c524`
+  is the monster participant ID (`<2` = nothing valid selected, `>=2` = monster slot + 2).
+  For a real attack, `$c523` is forced to `$01` (player is the attacker) and
+  `Call_001_5c00` runs the shared damage formula.
+
+Verified dynamically: a hook on `$5a59` fired exactly on the A press with `$c523=1`,
+`$c524=2` (monster slot 0), immediately followed by `Call_001_5c47`/`Call_001_5c75`, with
+the monster's HP struct field (offset `$06`) dropping by the expected damage in the same
+step. Still open: how the game transitions *into* `$c125=6` in the first place (presumably
+automatic on detecting an adjacent monster/item after a movement step — not yet traced).
 
 - **Monster → player** damage is a deterministic per-monster-type table lookup
   (`Call_001_518a`-style lookups), not a random roll.

@@ -10941,11 +10941,27 @@ jr_000_3c2c:
     ret                                           ; $3c31: $c9
 
 
+; Combat/interaction target-selection sub-dispatch (reached from Call_000_3bae's $c126
+; lookup at $3bbd, itself reached via Call_000_3bc6 on every new button press while
+; $c125==6, the "adjacent target selection" state). $c126==1 (a new direction was accepted
+; as the current target by Call_000_3c4f_TrySelectDirection) lands here and falls back to
+; $c125=1 - the same "commit facing/position" handler used by plain movement - since
+; re-aiming at a different adjacent monster/item needs the same facing update, just without
+; an actual step. Confirmed dynamically: this is NOT yet the attack, only the re-aim commit.
+Jump_000_3c32_CommitTargetSelection:
     ld a, $01                                     ; $3c32: $3e $01
     ld [$c125], a                                 ; $3c34: $ea $25 $c1
     ret                                           ; $3c37: $c9
 
 
+; $c126==3 (A newly pressed while a target is selected, set by Jump_000_3c7f_ConfirmAttack)
+; lands here. Sets $c125=12, which is the attack-execution state (see the $c125 dispatch
+; table at $3360, entry 12 -> $5a59 in bank_001.asm) that calls into the shared player/
+; monster damage formula (Call_001_5c00/5c47/5c75). Confirmed dynamically via PyBoy hooks:
+; pressing A while adjacent to and facing monster slot 0 in `combat2.state` hits exactly
+; $5a59 and Call_001_5c00/5c47/5c75 right after $c125 becomes 12, and the monster's HP
+; field (struct offset $06) drops by the expected damage amount.
+Jump_000_3c38_ConfirmAttack:
     ld a, $0c                                     ; $3c38: $3e $0c
     ld [$c125], a                                 ; $3c3a: $ea $25 $c1
     ret                                           ; $3c3d: $c9
@@ -10958,11 +10974,24 @@ jr_000_3c2c:
     ret                                           ; $3c48: $c9
 
 
+; $c512 dispatch table target for "no button newly pressed" while $c125==6: just clears
+; $c126 to 0 (idle-while-selecting) and returns.
+Jump_000_3c49_NoInputWhileTargeting:
     ld a, $00                                     ; $3c49: $3e $00
     ld [$c126], a                                 ; $3c4b: $ea $26 $c1
     ret                                           ; $3c4e: $c9
 
 
+; Direction newly pressed while $c125==6 ("adjacent target selection" state). This is the
+; real code behind the "press a direction again to pick which adjacent monster/item tile
+; is the current target" mechanic: resolves the facing delta for the pressed direction,
+; sanity-checks it (Call_000_3e08), then asks "is there a monster here" (Call_001_57db,
+; which wraps the monster-slot scan Call_000_2f28) or "is there a ground item here"
+; (Call_000_35ef). If neither, the direction press is rejected (falls through to `ret`,
+; current target unchanged - this is why re-pressing the direction you're already facing,
+; or a direction with nothing adjacent, does nothing visible). If either hit, falls to
+; jr_000_3c72 to commit the new target direction.
+Call_000_3c4f_TrySelectDirection:
     ld a, $00                                     ; $3c4f: $3e $00
     ld [$c126], a                                 ; $3c51: $ea $26 $c1
     ld a, [$c512]                                 ; $3c54: $fa $12 $c5
@@ -10982,6 +11011,9 @@ jr_000_3c2c:
     ret                                           ; $3c71: $c9
 
 
+; New target direction accepted (monster or ground item found there): stores the direction
+; index ($c512 - 1) into $c510 and sets $c126=1, which Call_000_3bae's sub-dispatch resolves
+; into Jump_000_3c32_CommitTargetSelection ($c125=1, facing/position commit).
 jr_000_3c72:
     ld a, [$c512]                                 ; $3c72: $fa $12 $c5
     dec a                                         ; $3c75: $3d
@@ -10991,11 +11023,17 @@ jr_000_3c72:
     ret                                           ; $3c7e: $c9
 
 
+; A newly pressed while $c125==6: sets $c126=3, which Call_000_3bae's sub-dispatch resolves
+; into Jump_000_3c38_ConfirmAttack ($c125=12, the actual attack-execution state).
+Jump_000_3c7f_ConfirmAttack:
     ld a, $03                                     ; $3c7f: $3e $03
     ld [$c126], a                                 ; $3c81: $ea $26 $c1
     ret                                           ; $3c84: $c9
 
 
+; B newly pressed while $c125==6: sets $c126=2 (cancel path, resolves back to
+; Jump_000_3c32_CommitTargetSelection same as a rejected/no-op direction press).
+Jump_000_3c85_CancelTargeting:
     ld a, $02                                     ; $3c85: $3e $02
     ld [$c126], a                                 ; $3c87: $ea $26 $c1
     ret                                           ; $3c8a: $c9

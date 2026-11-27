@@ -4589,6 +4589,20 @@ jr_001_5a49:
     ret                                           ; $5a58: $c9
 
 
+; $c125==12 handler: player's attack/pickup confirm (entered from bank_000.asm's
+; Jump_000_3c38_ConfirmAttack, reached by pressing A while a monster or ground item is the
+; currently-selected adjacent target - see the target-selection chain around $3c32-$3c85
+; in bank_000.asm). $c524 holds the staged target set up while selecting: bit7 set (>=$80)
+; means the target is a ground item lying on a tile (set by Call_000_35ef as `l | $80`),
+; so this jumps into the item pickup code (Jump_001_4f3d) instead. Otherwise $c524 is the
+; monster participant ID (`<2`=player/none, `>=2`=monster slot+2); `<2` means nothing valid
+; was actually selected (ret, no-op). Otherwise $c523 is forced to $01 (player is the
+; attacker) and Call_001_5c00 runs the shared player/monster damage formula
+; (Call_001_5c47/Call_001_5c75) against the selected monster slot in $c524. Confirmed
+; dynamically via PyBoy hooks on `combat2.state`: pressing A here lands exactly on this
+; address with $c523=1/$c524=2 (monster slot 0), and the monster's HP struct field
+; (offset $06) drops by the expected damage right after.
+Jump_001_5a59_ConfirmAttackOrPickup:
     xor a                                         ; $5a59: $af
     ld [$c534], a                                 ; $5a5a: $ea $34 $c5
     ld a, [$c524]                                 ; $5a5d: $fa $24 $c5
