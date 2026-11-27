@@ -50,6 +50,10 @@ class Cell:
     @property
     def known(self) -> bool:
         if self.is_item:
+            if self.closed_chest:
+                # item_type here is actually the chest's slot index, not an item type
+                # ID - there's nothing to identify until it's opened, so don't flag it.
+                return True
             return self.item_type in KNOWN_ITEM_TYPES
         return self.raw in KNOWN_TERRAIN_IDS
 
