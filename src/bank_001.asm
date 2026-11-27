@@ -2773,7 +2773,19 @@ Call_001_4f30:
     ret                                           ; $4f3c: $c9
 
 
-Jump_001_4f3d:
+; "Open the chest" step (reached from Jump_001_5a59_ConfirmAttackOrPickup when $c524 has
+; bit7 set, i.e. the selected target was a still-closed chest). Clears bit 7 on the chest's
+; $d500 cell (`res 7, [hl]`) - this is the actual open action, it does NOT add the item to
+; the inventory. The item type (now with bit7 clear) is used to look up a nibble from a
+; table at $2d6b and redraw the tile's on-screen graphic via Jump_000_2cb1, presumably
+; swapping the closed-chest tile for an open-chest/visible-item tile. After this, the item
+; sits on the tile as a normal walkable pickup (tile class $0a) - walking onto it and
+; pressing A again runs jr_000_36e0 in bank_000.asm, which is what actually fills the
+; inventory slot. Confirmed dynamically on a real chest (two Orb-item tiles found via
+; `save_001.state`): before, $d500 cell = $87 (item type 7, bit7 set); after this runs,
+; $d500 cell = $07 (bit7 clear, inventory unchanged); after walking onto the tile and
+; pressing A again, the item lands in a free inventory slot and the $d500 cell clears to 0.
+Jump_001_4f3d_OpenChestRevealItem:
     call Call_000_348c                            ; $4f3d: $cd $8c $34
     ld a, $4c                                     ; $4f40: $3e $4c
     call Call_000_00d9                            ; $4f42: $cd $d9 $00
@@ -4603,25 +4615,35 @@ jr_001_5a49:
     ret                                           ; $5a58: $c9
 
 
-; $c125==12 handler: player's attack/pickup confirm (entered from bank_000.asm's
-; Jump_000_3c38_ConfirmAttack, reached by pressing A while a monster or ground item is the
-; currently-selected adjacent target - see the target-selection chain around $3c32-$3c85
-; in bank_000.asm). $c524 holds the staged target set up while selecting: bit7 set (>=$80)
-; means the target is a ground item lying on a tile (set by Call_000_35ef as `l | $80`),
-; so this jumps into the item pickup code (Jump_001_4f3d) instead. Otherwise $c524 is the
-; monster participant ID (`<2`=player/none, `>=2`=monster slot+2); `<2` means nothing valid
-; was actually selected (ret, no-op). Otherwise $c523 is forced to $01 (player is the
-; attacker) and Call_001_5c00 runs the shared player/monster damage formula
-; (Call_001_5c47/Call_001_5c75) against the selected monster slot in $c524. Confirmed
-; dynamically via PyBoy hooks on `combat2.state`: pressing A here lands exactly on this
-; address with $c523=1/$c524=2 (monster slot 0), and the monster's HP struct field
-; (offset $06) drops by the expected damage right after.
+; $c125==12 handler: player's attack/chest-open confirm (entered from bank_000.asm's
+; Jump_000_3c38_ConfirmAttack, reached by pressing A while a monster or a still-closed
+; chest is the currently-selected adjacent target - see the target-selection chain around
+; $3c32-$3c85 in bank_000.asm). $c524 holds the staged target set up while selecting: bit7
+; set (>=$80) means the target is a closed chest (set by
+; Call_000_35ef_CheckClosedChestAhead as `l | $80`), so this jumps into
+; Jump_001_4f3d_OpenChestRevealItem instead. Otherwise $c524 is the monster participant ID
+; (`<2`=player/none, `>=2`=monster slot+2); `<2` means nothing valid was actually selected
+; (ret, no-op). Otherwise $c523 is forced to $01 (player is the attacker) and Call_001_5c00
+; runs the shared player/monster damage formula (Call_001_5c47/Call_001_5c75) against the
+; selected monster slot in $c524. Confirmed dynamically via PyBoy hooks on `combat2.state`:
+; pressing A here lands exactly on this address with $c523=1/$c524=2 (monster slot 0), and
+; the monster's HP struct field (offset $06) drops by the expected damage right after.
+;
+; The chest branch was confirmed separately on a real closed chest (two Orb-item tiles
+; found via `save_001.state`): approaching it transitions into this same select/confirm
+; flow, and confirming here (bit7 set) does NOT add anything to the inventory - it only
+; clears bit 7 on the $d500 cell (the item type byte goes from e.g. $87 to plain $07),
+; revealing the item on the tile. This is the real "open the chest" step; the item still
+; has to be walked onto and picked up with a *second*, separate A press afterwards (see
+; Jump_001_4f3d_OpenChestRevealItem and jr_000_36e0 in bank_000.asm). The bit 7 meaning was
+; initially misread backwards (as "ground item already exposed" rather than "still-closed
+; chest") before this was dynamically confirmed.
 Jump_001_5a59_ConfirmAttackOrPickup:
     xor a                                         ; $5a59: $af
     ld [$c534], a                                 ; $5a5a: $ea $34 $c5
     ld a, [$c524]                                 ; $5a5d: $fa $24 $c5
     cp $80                                        ; $5a60: $fe $80
-    jp nc, Jump_001_4f3d                          ; $5a62: $d2 $3d $4f
+    jp nc, Jump_001_4f3d_OpenChestRevealItem                          ; $5a62: $d2 $3d $4f
 
     ld a, [$c524]                                 ; $5a65: $fa $24 $c5
     cp $02                                        ; $5a68: $fe $02

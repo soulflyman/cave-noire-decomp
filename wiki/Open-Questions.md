@@ -28,12 +28,12 @@ fastest way to contribute.
   in inventory, standing next to a hole.
 - **Oriru item effect** (place stairs on adjacent tile): needs a savestate with the Oriru
   item in inventory.
-- **The "real" two-phase treasure chest** (open with A, item drops visibly on the tile, walk
-  onto it and press A again to actually collect it): confirmed this is **not** what the
-  `$d500` tile-overlay/`jr_000_36e0` mechanism does (that one is a single A-press, either
-  straight into the inventory or straight into `wGoldCollected` for gold-pile item types
-  `$10`/`$11` — see [Dungeon Mechanics](Dungeon-Mechanics)). Needs a savestate standing right
-  in front of a still-closed, visually distinct chest.
+- ~~**The "real" two-phase treasure chest**~~ — resolved: it's the same `$d500`
+  tile-overlay mechanism after all, the bit 7 meaning was just initially read backwards.
+  Bit 7 set = still-closed chest (select with direction + A opens it, revealing the item
+  without collecting it); bit 7 clear = item lying exposed (walk onto it + A collects it).
+  Gold-pile item types `$10`/`$11` skip the closed-chest step and are found already
+  exposed. See [Dungeon Mechanics](Dungeon-Mechanics).
 
 ## Monster system ([Monster System](Monster-System))
 

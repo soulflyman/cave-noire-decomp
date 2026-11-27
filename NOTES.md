@@ -1060,10 +1060,48 @@ Fenster/HUD-Popup mit SFX. Alle drei Stellen entsprechend umbenannt
 (`Call_001_50df_RollGoldAmount`, `Jump_000_351a_EnterGoldPickupPopup`,
 `Jump_001_5003_ShowGoldPickup`); Rebuild bleibt bit-identisch.
 
-**Weiterhin offen:** Die Haupt-Branch von `jr_000_36e0` (für "normale", nicht `$10`/`$11`-
-Itemtypen) füllt das Inventar direkt in einem Schritt ohne Zwischenstufe — passt also zu
-diesem einstufigen "Goldhaufen/Item"-Mechanismus, aber die vom User aus Live-Play
-beschriebene **Zwei-Phasen-Kiste** (öffnen → Item liegt sichtbar → separat aufheben) wurde
-damit noch nicht gefunden. Könnte ein eigenes Objekt sein (z.B. ein echtes Sprite statt des
-`$d500`-Tile-Overlays). Wartet auf einen echten Savestate kurz vor einer sichtbaren, noch
-ungeöffneten Kiste (nicht nur einem losen Boden-Item).
+**Weiterhin offen (Stand vor der echten Kisten-Savestate):** Die Haupt-Branch von
+`jr_000_36e0` (für "normale", nicht `$10`/`$11`-Itemtypen) füllt das Inventar direkt in
+einem Schritt ohne Zwischenstufe.
+
+## Die echte Zwei-Phasen-Kiste GEFUNDEN (dank User-Savestate `save_001.state`)
+
+User hat mit dem neuen `tools/play_and_save.py`-Skript (PyBoy mit Fenster + Z/X-Save/Load)
+einen Save zwei Felder südlich einer noch ungeöffneten Kiste erstellt (die explizit kein
+Gold/keine Falle enthält — Quest 1/Level 1). `$d500`-Scan zeigte zwei Items mit **Bit 7
+bereits gesetzt**: Offset 0 = `$87` (Itemtyp `$07` = Orb), Offset 1 = `$8d` (Itemtyp `$0d`,
+noch nicht identifiziert).
+
+**Wichtige Korrektur meiner vorherigen Bit-7-Interpretation:** Ich hatte Bit 7 im `$d500`-
+Byte als "Item liegt bereits sichtbar auf dem Boden" gedeutet (Tile-Klasse `$89`) und Bit 7
+gelöscht als "geschlossene Kiste mit Item drin" (Tile-Klasse `$0a`). Das war **exakt
+verkehrt herum** — dynamisch am echten Beispiel bestätigt:
+
+1. Herangelaufen (`up`×2) — zweiter Schritt blieb stehen und wechselte in `$c125=6`
+   (dieselbe "Ziel-Auswahl aktiv"-Mechanik wie beim Kampf!). `Call_000_35ef` feuerte dabei.
+2. Erneuter Richtungsdruck (`up`) selektiert die Kiste (`Call_000_3c4f_TrySelectDirection`
+   feuert, `$c524=130=0x82` = Slot|Bit7, die "geschlossene-Kiste"-Markierung).
+3. **A-Druck** löst `Jump_000_3c38_ConfirmAttack`→`Jump_001_5a59_ConfirmAttackOrPickup`→
+   (Bit 7 in `$c524` gesetzt) →`Jump_001_4f3d_OpenChestRevealItem` aus. Ergebnis:
+   `$d500[0]` wechselt von `135` (`$87`) zu **`7`** (`$07`, Bit 7 jetzt gelöscht!). Inventar
+   bleibt **unverändert**. Das ist der "Kiste öffnen"-Schritt — das Item liegt jetzt
+   sichtbar da, ist aber noch nicht eingesammelt.
+4. Ein Schritt weiter auf das jetzt offene Feld laufen (`up`), dann **nochmal A** drücken:
+   `jr_000_36e0` (Tile-Klasse jetzt `$0a`, da Bit 7 gelöscht) füllt tatsächlich einen freien
+   Inventarplatz (`inv[4]` wurde `7` = Orb) und `$d500[0]` wird auf `0` zurückgesetzt.
+
+**Also: Bit 7 GESETZT = noch geschlossene Kiste (braucht Richtung-selektieren + A zum
+Öffnen); Bit 7 GELÖSCHT = Item liegt offen da (braucht nur noch Hinlaufen + A zum
+Aufsammeln).** Das deckt sich exakt mit der vom User aus Live-Play beschriebenen
+Zwei-Phasen-Mechanik. `Call_000_35ef`, `Jump_001_4f3d` und alle zugehörigen Kommentare
+umbenannt/korrigiert (`Call_000_35ef_CheckClosedChestAhead`,
+`Jump_001_4f3d_OpenChestRevealItem`). Rebuild bleibt bit-identisch
+(MD5 `10d92861e262069ce31559e12b927aa0`).
+
+Mein früherer "Goldhaufen" Fund (Itemtyp `$10`/`$11`, siehe oben) ist ein Spezialfall *ohne*
+diese Zwei-Phasen-Logik: `jr_000_36e0` fängt `$10`/`$11` schon in der direkten Branch ab
+(bevor es überhaupt zur Kisten-Auswahl kommt) und addiert sofort Gold — passt dazu, dass
+loses Gold auf dem Boden liegt und nicht erst "geöffnet" werden muss. Für Itemtyp `7`
+(Orb) und vermutlich die meisten anderen Items gilt dagegen die volle Zwei-Phasen-Kiste.
+
+Noch offen: Itemtyp `$0d` (zweites Item in `save_001.state`) ist weiterhin unidentifiziert.

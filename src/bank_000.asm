@@ -9698,7 +9698,7 @@ Call_000_35ce:
     ld a, [$c50c]                                 ; $35dc: $fa $0c $c5
     ld d, a                                       ; $35df: $57
     ld a, [$c508]                                 ; $35e0: $fa $08 $c5
-    call Call_000_35ef                            ; $35e3: $cd $ef $35
+    call Call_000_35ef_CheckClosedChestAhead                            ; $35e3: $cd $ef $35
     jr c, jr_000_35cc                             ; $35e6: $38 $e4
 
     ld a, $05                                     ; $35e8: $3e $05
@@ -9707,7 +9707,12 @@ Call_000_35ce:
     ret                                           ; $35ee: $c9
 
 
-Call_000_35ef:
+; Checks whether the tile ahead is a still-closed chest ($d500 cell bit 7 set, tile class
+; $89 - the bit meaning was initially misread as "ground item lying exposed"; confirmed
+; dynamically it is actually "closed chest, not yet opened"). If so, resolves which chest
+; slot via $4f0e and stages it into $c521/$c522 (chest tile's facing delta) and $c524
+; (slot | $80, the "closed chest selected" flag consumed by Jump_001_5a59_ConfirmAttackOrPickup).
+Call_000_35ef_CheckClosedChestAhead:
     call Call_000_2ef1                            ; $35ef: $cd $f1 $2e
     ld a, [$c241]                                 ; $35f2: $fa $41 $c2
     cp $89                                        ; $35f5: $fe $89
@@ -10987,14 +10992,14 @@ Jump_000_3c49_NoInputWhileTargeting:
 
 
 ; Direction newly pressed while $c125==6 ("adjacent target selection" state). This is the
-; real code behind the "press a direction again to pick which adjacent monster/item tile
+; real code behind the "press a direction again to pick which adjacent monster/chest tile
 ; is the current target" mechanic: resolves the facing delta for the pressed direction,
 ; sanity-checks it (Call_000_3e08), then asks "is there a monster here" (Call_001_57db,
-; which wraps the monster-slot scan Call_000_2f28) or "is there a ground item here"
-; (Call_000_35ef). If neither, the direction press is rejected (falls through to `ret`,
-; current target unchanged - this is why re-pressing the direction you're already facing,
-; or a direction with nothing adjacent, does nothing visible). If either hit, falls to
-; jr_000_3c72 to commit the new target direction.
+; which wraps the monster-slot scan Call_000_2f28) or "is there a still-closed chest here"
+; (Call_000_35ef_CheckClosedChestAhead). If neither, the direction press is rejected (falls
+; through to `ret`, current target unchanged - this is why re-pressing the direction you're
+; already facing, or a direction with nothing adjacent, does nothing visible). If either
+; hit, falls to jr_000_3c72 to commit the new target direction.
 Call_000_3c4f_TrySelectDirection:
     ld a, $00                                     ; $3c4f: $3e $00
     ld [$c126], a                                 ; $3c51: $ea $26 $c1
@@ -11009,7 +11014,7 @@ Call_000_3c4f_TrySelectDirection:
     jr nc, jr_000_3c72                            ; $3c67: $30 $09
 
     ld a, [$c500]                                 ; $3c69: $fa $00 $c5
-    call Call_000_35ef                            ; $3c6c: $cd $ef $35
+    call Call_000_35ef_CheckClosedChestAhead                            ; $3c6c: $cd $ef $35
     jr nc, jr_000_3c72                            ; $3c6f: $30 $01
 
     ret                                           ; $3c71: $c9
