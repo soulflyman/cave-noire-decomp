@@ -9866,7 +9866,7 @@ jr_000_36bf:
 
 
 jr_000_36c5:
-    call $408a                                    ; $36c5: $cd $8a $40
+    call Call_001_408a_WarpToOtherRoom                                    ; $36c5: $cd $8a $40
     ld a, $0c                                     ; $36c8: $3e $0c
     ld [$c126], a                                 ; $36ca: $ea $26 $c1
     ret                                           ; $36cd: $c9

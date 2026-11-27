@@ -74,11 +74,21 @@ though this hasn't been checked across other quest/level combinations.
 
 ## Warp
 
-Tile class `$0b` leads into code that reads an address pair, `$c427`/`$c428` — the "partner
-position" of a warp tile. It compares the player's current position against both, and
-teleports to whichever one *isn't* the current position (via a word-table lookup at
-`$206b`, producing new coordinates in `$c50b`/`$c50c`). This is a strong, structurally
-sound hypothesis but hasn't been triggered in an actual test yet.
+Tile class `$0b` leads into `Call_001_408a_WarpToOtherRoom`, which reads an address pair,
+`$c427`/`$c428` — the two *room-index* endpoints of a warp pair (`$c500` is the current room
+index within the floor, a separate concept from `$c503`/`$c504`, the in-room tile
+row/column). It compares the current room index against `$c427`, and picks `$c428` as the
+destination if they match, `$c427` otherwise ("teleport to whichever end isn't the current
+one") - resolving that destination room via a word-table lookup at `$206b` and staging new
+in-room coordinates into `$c50b`/`$c50c`. `Jump_001_40de_FinalizeWarp` then actually commits
+the staged room index + coordinates into `$c500`-`$c504` and redraws the view.
+
+**Confirmed live** on a real warp tile (stand on it, press A - exactly as described from
+play): `$c427`/`$c428` were `(1, 2)`; starting in room `1`, the code picked room `2`, and
+the player's position jumped instantly from `(5,7)` to `(1,2)`, landing in a visually
+distinct, separately-dark room with its own warp tile - while the floor number (`$c104`)
+stayed the same throughout. Matches the description exactly: warps always stay on the same
+floor but move between rooms.
 
 ## Floor warning icons
 

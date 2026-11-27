@@ -19,8 +19,10 @@ fastest way to contribute.
 - **"?" secret-wall warning icon**: same situation, needs a tile ID `$09` adjacent to the
   player.
 - **Hole-jump icon**: needs a savestate directly facing a hole (tile ID `$0f` ahead).
-- **Warp mechanic**: the `$c427`/`$c428` address-pair hypothesis is plausible but completely
-  untested. Needs a savestate on/next to an actual warp tile.
+- ~~**Warp mechanic**~~ — confirmed exactly as hypothesized: `$c427`/`$c428` are a warp
+  pair's two room-index endpoints, and stepping onto the tile + pressing A teleports to
+  whichever endpoint isn't the current room, same floor, different room. See
+  [Dungeon Mechanics](Dungeon-Mechanics).
 - **Lava**: no tile class identified at all. Needs a savestate in a room with lava tiles
   (per the wiki, likely near Salamander spawns).
 - **Door** (dungeon exit): no tile class identified. Needs a savestate right after

@@ -1172,3 +1172,28 @@ Nebenbei zwei weitere Item-IDs bestätigt: `$01`=Kaifuku (Heilung), `$02`=Dokuke
 `wiki/Item-System.md`/`wiki/Dungeon-Mechanics.md`/`wiki/Open-Questions.md` nachgezogen.
 Reiner Dokumentations-Fund (Item-Screen-Namen per PyBoy-Input-Navigation ausgelesen), keine
 Code-Änderung nötig.
+
+## Warp/Teleporter GEFUNDEN (`save_004.state`) — statische Hypothese exakt bestätigt
+
+User-Save direkt unter einem Teleporter (B4F, Quest 1/Level 1). Hochgelaufen (Tile-Klasse
+`$0b` erreicht, `$c241=128`→`11` nach dem Schritt drauf), dann **A** gedrückt:
+
+- Position sprang sofort von `(5,7)` auf `(1,2)` (Zeile/Spalte), `$c500` (siehe unten: das
+  ist der **Raum-Index innerhalb der Etage**, nicht die Zeile!) wechselte von `1` auf `2`,
+  Etage (`$c104`) blieb bei `4` — exakt wie vom User beschrieben: "immer dieselbe Ebene,
+  anderer Raum".
+- Screenshot vorher/nachher bestätigt visuell einen komplett anderen (dunklen) Raum mit
+  erneut sichtbarem Teleporter-Symbol.
+
+**Code exakt wie in der ursprünglichen statischen Hypothese** (`Call_001_408a_WarpToOtherRoom`,
+vorher nur als `$408a` referenziert): `$c427`/`$c428` sind die zwei Raum-Index-Endpunkte
+dieses Warp-Paares; der Code vergleicht `$c500` (aktueller Raum-Index) gegen `$c427` — bei
+Übereinstimmung wird `$c428` als Ziel genommen, sonst `$c427` ("teleportiere zum jeweils
+ANDEREN Ende"). Das Ziel wird über eine Wort-Tabelle bei `$206b` aufgelöst, die neue
+In-Raum-Position nach `$c50b`/`$c50c` gestaged, und erst eine separate Funktion
+(`Jump_001_40de_FinalizeWarp`, vorher `$40de`) übernimmt das tatsächlich in
+`$c500`-`$c504` und zeichnet die Ansicht neu.
+
+Live getestet: `$c427`/`$c428` = `(1, 2)`, Start-Raum-Index `1` → Ziel-Raum-Index `2`
+gewählt, landete im sichtbar anderen Raum. Beide Routinen benannt/kommentiert, Rebuild
+bleibt bit-identisch (MD5 `10d92861e262069ce31559e12b927aa0`).

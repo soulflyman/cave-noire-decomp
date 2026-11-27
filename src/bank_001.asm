@@ -104,6 +104,20 @@ jr_001_4073:
     jr z, jr_001_40b2                             ; $4087: $28 $29
 
     dec h                                         ; $4089: $25
+
+; Warp handler (called from jr_000_36c5 in bank_000.asm when the player steps onto/
+; interacts with a tile class $0b "warp" tile). $c427/$c428 are the two room-index
+; endpoints of this specific warp pair ($c500 is the current *room index* within the
+; floor, distinct from $c503/$c504 which are the in-room tile row/column). Picks whichever
+; of the two endpoints does NOT match the current room index ("teleport to the other end"),
+; stores it as the destination room index in $c508, looks up that room's data via the
+; $206b word table, and stages the new in-room coordinates into $c50b/$c50c (actually
+; committed to $c500-$c504 later by Jump_001_40de_FinalizeWarp). Confirmed dynamically:
+; on a real warp tile, $c427/$c428 were (1, 2); starting in room 1, this picked room 2 as
+; the destination, and the player ended up on the matching warp tile in a visually
+; different room on the *same floor* ($c104 unchanged) - exactly as described from live
+; play ("always same floor, different room").
+Call_001_408a_WarpToOtherRoom:
     ld a, $01                                     ; $408a: $3e $01
     ld [$c267], a                                 ; $408c: $ea $67 $c2
     ld a, [$c500]                                 ; $408f: $fa $00 $c5
@@ -150,6 +164,13 @@ jr_001_40b2:
     ret                                           ; $40dd: $c9
 
 
+; Plays the warp SFX ($4a), then - once $c267 (set to 1 by
+; Call_001_408a_WarpToOtherRoom, cleared back to 0 once the destination tile re-check in
+; that function passes) reads back as 0 - actually commits the staged destination: copies
+; $c509/$c50a/$c50b/$c50c (new in-room pixel/tile position) into $c501-$c504 and $c508 (new
+; room index) into $c500, then redraws the view (Jump_000_2e57). This is the actual
+; teleport; Call_001_408a_WarpToOtherRoom only stages it.
+Jump_001_40de_FinalizeWarp:
     ld a, $4a                                     ; $40de: $3e $4a
     call Call_000_00d9                            ; $40e0: $cd $d9 $00
     ld a, [$c267]                                 ; $40e3: $fa $67 $c2
