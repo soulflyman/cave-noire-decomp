@@ -129,7 +129,19 @@ order:
    resolves
 
 The generic effect dispatcher (bank 1, roughly `$50ac`-`$5326`, branching on `$c516`) then
-runs the concrete effect.
+runs the concrete effect - except it turns out this one only special-cases sword/shield
+(`$18`-`$1f`), `$06`, and `$12`; everything else falls through to a shared "recount Orbs,
+close the popup" cleanup and does nothing else *here*.
+
+**The real per-item effect code lives elsewhere**: `Call_001_5190_ItemUseEffectDispatch`
+(bank 1, `$5190`) reads the selected item type directly from the inventory slot, stashes
+it in `$c514`, and jumps through an inline 32-entry table (one per item type `$01`-`$20`,
+`rst RST_00` indexed by type-1) to the real effect code. See that routine's comment in
+`src/bank_001.asm` for the full decoded address table. This is also what finally explains
+an old open question from earlier in this project's history: the `$c125` state 7/8/9
+"scan 4 directions for raw tile `$09`" chain, which repeated live-play tests could never
+trigger through movement alone, turned out to be **item `$04`'s effect**, not a passive
+mechanic - it's deliberately triggered by using that item, not by bumping a wall.
 
 ## Confirmed item type IDs
 
@@ -143,20 +155,30 @@ runs the concrete effect.
 | `$0a` | Invisibility (item-screen name confirmed: トウメイ/Toumei) | "Toumei" |
 | `$0d` | Light up the current room (item-screen name confirmed: アカリ/Akari). Confirmed live: using it clears the inventory slot and immediately redraws a larger chunk of the dark tilemap (dark `$5f` tile count dropped from 204 to 136 in one use on a real dark-floor savestate) - a one-shot "reveal more of this room" effect, not a lasting light radius. Monsters within the newly-lit area are **still** shown only as the eye-pair sprite until actually approached - the Akari reveal and the "monster visible" reveal are separate systems. | "Akari" |
 | `$12` | `wPlayerMaxHP += 1`, doesn't occupy a slot | "HP no Moto" (+1 max HP, doesn't occupy a slot) |
+| `$14` | Scans the 4 adjacent tiles for raw terrain class `$22` (same "scan 4 directions" family as `$04` below) - strongly implies raw tile `$22` is the Fairy Cage itself. Static deduction only, not live-confirmed: also the item hardcoded into starting-inventory slot 2 on early quest-4 (Fairy) floors (see "Starting inventory" above), which only makes sense for a guaranteed early-game key | "Kagi" (fairy cage key) |
 | `$18`-`$1b` | Sword, +1/+2/+3/+5 attack; item-screen name confirmed for `$18`: マホウノケン/Mahou no Ken | Mahou/Honoo/Inazuma/Densetsu no Ken |
 | `$1c`-`$1f` | Shield, +1/+2/+3/+5 defense | Ki/Tetsu/Hagane/Densetsu no Tate |
 
-## Not yet identified
+## Partially understood - behavior known, exact name not pinned down
 
-About 9 more item type IDs from the StrategyWiki list haven't been individually mapped to a
-numeric ID yet: Tobu (warp), Change (weaken monsters), Mamori (temp. defense), Lucky
-(+1 Lucky, no slot), Oriru (place stairs), Faigaa, Ganseki (fill hole/rock barrier), Kagi
-(fairy cage key - `$0d` in `save_001.state`/`save_003.state` both turned out to be Akari,
-not Kagi, so this one's ID is still unconfirmed), Gold (no slot, but see `$10`/`$11` in
+Traced via `Call_001_5190_ItemUseEffectDispatch` (see "Item-use flow" above), but not yet
+matched to a specific StrategyWiki name/live-confirmed:
+
+| ID | What the code does | Candidate(s) |
+|---|---|---|
+| `$04` | Scans the 4 adjacent tiles for raw terrain class `$09` (a plain wall) - this is the `$c125` state 7/8/9 chain mentioned above | Unclear - none of the remaining StrategyWiki names obviously mean "search for a wall", so this may need re-checking |
+| `$05` | Stashes the player's own position, then enters the same `$c125`=8 "scan adjacent tiles" state `$04` uses | Possibly Ganseki (fill hole/rock barrier) |
+| `$0c` | Same "stash own position, scan state 8" pattern as `$05` | Possibly Ganseki or Oriru |
+| `$0e` | Stashes the player's own position, then examines *all 4* neighboring tiles at once (storing each one's raw class separately) rather than scanning for one match | Possibly Oriru (place stairs - needs to evaluate which adjacent tile is a valid floor) |
+| `$08`, `$09`, `$0b` | Each scales a value by Lucky (`$c123`) and writes it into the same kind of bonus-table variable the sword/shield attack/defense bonus uses (`$c12e` and friends) - temporary combat buffs, structurally similar to the already-confirmed `$06` | Candidates: Change (weaken monsters), Mamori (temp. defense), Lucky (+1 Lucky) - not told apart from each other yet |
+| `$13`, `$20` | Not yet read in detail | Faigaa, Tobu, or Gold |
+
+Still fully unidentified: Tobu (warp), Gold (no slot - but see `$10`/`$11` in
 [Dungeon Mechanics](Dungeon-Mechanics) for the actual loose-gold-pile item types, which may
-or may not be what the wiki calls "Gold"). Two structurally identical "scan all 4 directions
-for a matching tile type" routines were found (bank 1, `$53a2` and `$572c`) that are
-plausibly Ganseki and Oriru respectively, but not individually confirmed.
+or may not be what the wiki calls "Gold"), and whichever of the above table's candidates
+don't end up matching `$13`/`$20` either.
 
 See [Open Questions](Open-Questions) for what a savestate would need to look like to confirm
-each of these.
+each of these - mainly: get one of these item types into inventory, use it, and watch what
+actually happens on screen (does a monster weaken, does a hole get filled, etc.) to match
+behavior to name.

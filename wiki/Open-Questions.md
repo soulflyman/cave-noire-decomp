@@ -78,11 +78,17 @@ fastest way to contribute.
 
 ## Item system ([Item System](Item-System))
 
-- **~9 unidentified item type IDs**: Tobu, Change, Mamori, Lucky, Oriru, Faigaa, Ganseki,
-  Kagi, Gold (see [Item System](Item-System) "Not yet identified" for details - Kaifuku,
-  Dokukeshi, Toumei, Akari, Fire, and `$12`/"HP no Moto" are already confirmed). For each:
-  a savestate with that specific item in inventory (`wInventory`, `$c140`-`$c147`), then
-  use it and watch the `$c516`/effect-dispatcher jump.
+- **~7 item type IDs with known behavior but unconfirmed exact name**: `$04`/`$05`/`$08`/
+  `$09`/`$0b`/`$0c`/`$0e`/`$13`/`$20` (see [Item System](Item-System) "Partially understood"
+  for what each one's code actually does - a real master dispatch table was found at
+  `Call_001_5190_ItemUseEffectDispatch`, bank 1 `$5190`). `$14` = Kagi is a confident static
+  deduction from that same table but still not live-confirmed. For each: a savestate with
+  that specific item in inventory (`wInventory`, `$c140`-`$c147`), then use it and watch
+  what actually happens on screen.
+- **Still fully unidentified**: Tobu (warp), Gold (no slot - see `$10`/`$11` in
+  [Dungeon Mechanics](Dungeon-Mechanics) for the likely actual candidates).
+- **Raw tile `$22`**: statically deduced to be the Fairy Cage (item `$14`/Kagi's effect
+  code scans for it) - needs a Fairy-quest savestate with a visible cage to confirm.
 - **Sword/shield bonus actually applied in combat**: the bonus tables themselves are
   confirmed from ROM bytes, but applying one and then fighting with it hasn't been tested
   live. Needs a savestate with a sword or shield in inventory, followed by a combat test.

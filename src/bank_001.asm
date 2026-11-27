@@ -3219,6 +3219,41 @@ Call_001_518a:
     ret                                           ; $518f: $c9
 
 
+; The real master item-use effect dispatch: reads the selected inventory slot
+; (wInventory[$c031]), stashes the item type in $c514, then jumps through an inline
+; 32-entry table (one per item type $01-$20, indexed by type-1) via `rst RST_00`. Found
+; while trying to identify the ~9 remaining unknown item type IDs - the generic
+; "$c516"-keyed dispatcher at $50ac (see Call_001_50a2 and friends) turned out to only
+; special-case sword/shield/$06/$12 and isn't the real per-item effect code after all.
+;
+; Full table (decoded from ROM, bank 1 word table at $519d), target address per item
+; type - $525c is the shared "nothing to do" entry (just clears $c514):
+;   $01 Kaifuku (heal)        -> $51db      $02 Dokukeshi (cure poison) -> $520a
+;   $03 Fire                  -> $542e      $04 ?                       -> $539c
+;   $05 ?                     -> $5547      $06 (handled at $50ac, not here)
+;   $07 Orb                   -> $55ac      $08 ?                       -> $5218
+;   $09 ?                     -> $5239      $0a Toumei (invisibility)   -> $5403
+;   $0b ?                     -> $51e4      $0c ?                       -> $5327
+;   $0d Akari (light)         -> $55f0      $0e ?                       -> $547e
+;   $0f-$11, $15-$1f          -> $525c (no-op here; $10/$11 gold and $18-$1f sword/
+;                                       shield are handled by other systems entirely)
+;   $12 (handled at $50ac)    -> $525c      $13 ?                       -> $56b3
+;   $14 Kagi (key)            -> $5726      $20 ?                       -> $5acd
+;
+; Of the "?" entries: $04 and $05 both scan the 4 adjacent tiles for a specific raw
+; terrain class (same family as Call_000_2f48/Call_000_2f4c, see
+; wiki/Dungeon-Mechanics.md) - $04 directly for raw tile $09 (a plain wall - this is the
+; long-mysterious "$c125 state 7/8/9" chain from earlier in this project's history,
+; which turned out to be an item effect, not a passive mechanic). $14 (Kagi) scans for
+; raw tile $22 instead - strongly implying raw tile $22 is the Fairy Cage. $0c and $0e
+; both stash the player's own position before examining all 4 neighboring tiles
+; (storing each one's class) - consistent with "look for a tile to place/fill
+; something" (Ganseki/Oriru candidates). $08/$09/$0b scale a value by Lucky ($c123) and
+; write it into bonus-table-like variables ($c12e et al, the same ones the sword/shield
+; bonus uses) - temporary combat buffs, not yet told apart from each other or from the
+; already-confirmed $06. None of this is matched to exact StrategyWiki names yet except
+; where noted - see wiki/Item-System.md for the up to date picture.
+Call_001_5190_ItemUseEffectDispatch:
     ld a, [$c031]                                 ; $5190: $fa $31 $c0
     ld hl, $c140                                  ; $5193: $21 $40 $c1
     rst RST_28                                    ; $5196: $ef

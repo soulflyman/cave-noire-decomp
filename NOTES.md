@@ -1440,3 +1440,35 @@ behoben wurde, siehe Git-Historie `tools/`). Dabei nebenbei einen neuen Tile-Fun
 Rohwert `$10` = **Treppe nach unten** (bestätigt in `save_002.state`, Feld F3 im
 Grid-Tool). In `wiki/Dungeon-Mechanics.md` eine kleine Tabelle bekannter Boden-Tile-IDs
 ergänzt.
+
+## Echter Item-Effekt-Dispatcher gefunden (reine Code-Analyse, kein neues Savegame)
+
+User wollte wissen, welche Aufgaben sich rein statisch angehen lassen — als erstes die
+~9 unbekannten Item-Effekte. Dabei einen bisher übersehenen, echten Dispatcher gefunden:
+`Call_001_5190_ItemUseEffectDispatch` (Bank 1, `$5190`) liest den Item-Typ direkt aus
+dem Inventar-Slot und springt über eine 32-Einträge-Tabelle (`rst RST_00`, Index =
+Typ-1) zur eigentlichen Effekt-Routine. Der bisher als "der" Effekt-Dispatcher
+dokumentierte Code bei `$50ac` behandelt tatsächlich nur Schwert/Schild/`$06`/`$12` —
+alles andere läuft dort nur in einen generischen "Orb-Zähler neu berechnen"-Rückfallpfad,
+ohne eigenen Effekt. Das erklärt, warum die einfachen Verbrauchsgegenstände (Heiltrank,
+Gegengift, Toumei, Akari) dort nie eine eigene Verzweigung hatten — ihr echter Code sitzt
+in der neu gefundenen Tabelle.
+
+**Konkrete neue Funde:**
+- **Item `$14` = Kagi (Fairy-Cage-Schlüssel)**, jetzt doppelt statisch bestätigt: zum
+  einen der schon bekannte Sonderfall im Start-Inventar (nur Quest 4/Fairy, Level 1-2),
+  zum anderen scannt sein Effekt-Code die 4 Nachbarfelder nach Roh-Tile-Wert `$22` —
+  was wiederum stark dafür spricht, dass **Tile `$22` der Fairy-Käfig selbst ist**.
+- **Ein altes offenes Rätsel aus dieser Session gelöst**: die nie live auslösbare
+  `$c125`-Zustandskette 7/8/9 ("scanne 4 Richtungen nach Wand-Tile `$09`") ist kein
+  passiver Lauf-Mechanismus, sondern **der Effekt von Item `$04`** — deshalb ließ sie
+  sich damals durch bloßes Herumlaufen nie triggern.
+- Items `$05`/`$0c`/`$0e` zeigen ein ähnliches "untersuche Nachbarfelder"-Muster
+  (Kandidaten: Ganseki/Oriru), Items `$08`/`$09`/`$0b` skalieren einen Wert über Lucky
+  in dieselben Bonus-Variablen wie Schwert/Schild (temporäre Kampf-Buffs, Kandidaten:
+  Change/Mamori/Lucky) — aber noch nicht einzeln den genauen StrategyWiki-Namen
+  zugeordnet. `$13`/`$20` noch gar nicht angeschaut.
+
+Vollständige Adress-Tabelle als Kommentar direkt im Code (`src/bank_001.asm` bei
+`Call_001_5190_ItemUseEffectDispatch`) und in `wiki/Item-System.md` dokumentiert.
+Rebuild bleibt bit-identisch.
