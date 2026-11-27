@@ -1105,3 +1105,43 @@ loses Gold auf dem Boden liegt und nicht erst "geöffnet" werden muss. Für Item
 (Orb) und vermutlich die meisten anderen Items gilt dagegen die volle Zwei-Phasen-Kiste.
 
 Noch offen: Itemtyp `$0d` (zweites Item in `save_001.state`) ist weiterhin unidentifiziert.
+
+## Dunkelheit/Fackel-Mechanik ENDLICH BESTÄTIGT (`save_003.state`, B4F, Quest 1/Level 1)
+
+User hat mit `tools/play_and_save.py` einen Save in einem dunklen Dungeon-Abschnitt erstellt
+(Etage B4F — passt zur früheren Info "Dunkelheit erst ab tieferen Etagen"). HP kritisch
+niedrig (3/10), zwei Monster vom bisher unbekannten Typ `$13` (19) an identischer Position
+(4,5) — vermutlich dasselbe Monster, als Augenpaar dargestellt (siehe unten).
+
+**Visuell bestätigt** (`pyboy.screen.image` — funktioniert einwandfrei, anders als die
+früher für Einzel-Tiles gefundene PyBoy-Bildbug): Screenshot zeigt exakt das vom User
+beschriebene/referenzierte Bild — dichtes Dither-Muster über fast den ganzen Bildschirm,
+der Spieler + ein kleiner Raumausschnitt (Mauer + Boden) bleiben sichtbar, das Monster
+erscheint nur als weißes Augenpaar-Sprite (OAM-Tile `140`, zwei nebeneinander platzierte
+Sprites bei x=80/88,y=64) inmitten der Dunkelheit.
+
+**Dunkelheits-Tile identifiziert:** Rohes Tilemap-Byte `$5f` (95) — direkt aus `$9800`+Offset
+gelesen (LCDC Bit 4 gesetzt → `$8000`-Adressierung, also Tile-ID 95 = VRAM `$85f0`). Füllt
+den kompletten sichtbaren Bildschirmbereich außerhalb des kleinen "erhellten" Fensters um
+den Spieler.
+
+**Dynamischer Aufdeck-Mechanismus bestätigt** (nicht nur statische Raumgrafik!): Vor einem
+Schritt nach unten zeigte Zeile 14-15 der Tilemap durchgängig `95` (dunkel). Nach genau
+einem `down`-Tastendruck (Spielerposition Zeile 5→6) wurden exakt diese beiden Zeilen mit
+echten Boden-/Wand-Tiles (`21`,`22`,`18`,...) überschrieben — die bereits zuvor aufgedeckten
+Zeilen blieben dabei unverändert sichtbar (kein erneutes Verdunkeln). Das ist also ein
+klassisches "Fog of War mit Gedächtnis": bei jeder Bewegung wird ein kleiner Bereich um die
+neue Position aus der echten Raumkarte neu gezeichnet und bleibt danach dauerhaft sichtbar.
+
+**Noch offen:** Die genaue Code-Routine, die pro Zug den Aufdeck-Radius berechnet und die
+echten Tiles aus der Raumkarte in den `$9800`-Bereich schreibt, wurde noch nicht lokalisiert
+(ROM-weite Suche nach `$5f` als Vergleichskonstante in Bank 0/1 ergab nichts — die Logik
+prüft vermutlich nicht "ist das Tile == `$5f`", sondern zeichnet einfach bei jeder Bewegung
+unbedingt einen kleinen Bereich um die neue Position neu, unabhängig davon ob Dunkelheit
+aktiv ist; der Unterschied zu normalen Räumen wäre dann nur, dass dunkle Räume beim Betreten
+mit `$5f` statt der echten Tiles vorinitialisiert werden). Die "Kerze/Akari"-Item-Identität
+(User: ein Item im Inventar erhellt einmalig den ganzen aktuellen Screen und wird dabei
+verbraucht) wurde **nicht** getestet — Inventar war `[1,3,2,10,7,13,24,0]` (7=Orb, 24=Schwert
++1 bekannt; 1/2/3/10/13 Kandidaten für Akari), aber bei HP 3/10 war ein Testlauf zu riskant
+(ein unbekannter Itemeffekt könnte z.B. ein Fallen-Trigger sein). Braucht entweder einen
+weniger riskanten Save (höhere HP) oder eine bewusste Entscheidung, das Risiko einzugehen.

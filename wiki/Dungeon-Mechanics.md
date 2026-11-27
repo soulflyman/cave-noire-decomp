@@ -113,20 +113,35 @@ individually confirmed.
 
 The StrategyWiki describes rooms where darkness covers the floor beyond 1-2 tiles of the
 player, monsters show only as a pair of eyes until approached, and the `Akari` item (or
-defeating a Flame Eye) removes it. A reference screenshot (floor B4F) confirms this exactly:
-a dense dither pattern covers most of the room, with a monster visible only as a white
-eye-pair sprite.
+defeating a Flame Eye) removes it.
 
-**Not found.** This mechanic only appears on deeper floors than any available savestate
-reaches. A VRAM tile dump of all 384 background tiles loaded in a floor-1 savestate turned
-up no dither-pattern tile and no eye sprite — consistent with the mechanic simply not being
-loaded that early, not a dead end in the search method itself. Two candidate next steps:
+**Confirmed**, using a real savestate from floor B4F (deep enough to have darkness active,
+provided by the user via `tools/play_and_save.py`):
 
-1. Navigate deep enough into a real quest to capture a savestate from a dark floor, then
-   repeat the VRAM tile dump.
-2. Keep tracing statically: find the "draw room from dungeon layout" function (not yet
-   located) and look for a per-tile distance-from-player check gating whether it draws the
-   real tile or a dark placeholder.
+- `pyboy.screen.image` renders the scene correctly (unlike the single-tile `Tile.image()`
+  API, which still returns solid black - a PyBoy quirk noted earlier in this project). The
+  screenshot matches the StrategyWiki description and the earlier reference screenshot
+  exactly: a dense dither pattern covers almost the entire visible area, with only a small
+  patch of real room art around the player, and the monster rendered as a plain white
+  eye-pair sprite (OAM tile `140`, two sprites placed side by side).
+- The dark placeholder tile's raw VRAM value is `$5f` (95) - read directly from the
+  `$9800`-based background tilemap (LCDC bit 4 set, so `$8000` addressing applies directly).
+- **It's a real, dynamic fog-of-war, not static room art.** Before moving one step, two
+  tilemap rows at the edge of the revealed patch were solid `$5f`. After a single `down`
+  press (one tile of movement), those exact two rows were overwritten with real floor/wall
+  tile IDs, while the previously-revealed area stayed visible and unchanged - i.e. revealed
+  tiles are remembered, not just shown within a fixed radius of the player's current
+  position.
+
+**Still open:** the exact routine that performs this per-move "reveal nearby tiles" redraw
+hasn't been located yet - a search for `$5f` used as an immediate comparison constant in
+banks 0/1 came up empty, suggesting the redraw doesn't check "is this tile still dark" but
+unconditionally redraws a small area around the new position every move (in both dark and
+normal rooms alike), with the darkness-specific part only being that affected rooms
+pre-fill their unexplored tiles with `$5f` at load time rather than the real tile. The
+`Akari`/candle item (confirmed present in the test inventory, not yet tested due to
+critically low HP in that specific savestate) still needs a live test to confirm it lights
+up the whole current screen and is consumed on use, as described.
 
 ## Not located at all
 

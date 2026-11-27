@@ -7,9 +7,12 @@ fastest way to contribute.
 
 ## Dungeon mechanics ([Dungeon Mechanics](Dungeon-Mechanics))
 
-- **Darkness/torch mechanic**: visibility radius, "revealed tile" bitmap, the dither tile
-  graphic, the eyes-only monster sprite. Needs a savestate **several floors deep** (per
-  community info, darkness only starts on deeper floors) in a room with active darkness.
+- ~~**Darkness/torch mechanic**~~ — confirmed: dither tile is raw VRAM id `$5f`, the
+  monster shows as a 2-sprite eye-pair (OAM tile `140`), and it's a real dynamic
+  fog-of-war with memory (revealed tiles stay revealed). The exact per-move reveal
+  routine itself is still unlocated — see [Dungeon Mechanics](Dungeon-Mechanics). Also
+  still open: live-testing the `Akari`/candle item's full-screen-light effect (present in
+  the confirming savestate's inventory but untested there due to critically low HP).
 - **"!!" floor-crack warning icon**: plausible code match, not dynamically triggered. Needs
   a savestate on/next to an actually-cracking floor tile (tile ID `$1d` or `$23` ahead of
   the player).
