@@ -75,5 +75,35 @@ def read_room_grid(memory):
     return room, player_row, player_col, grid
 
 
+# The Game Boy screen is 160x144px; each addressable row/col step is one 16x16 logical
+# dungeon cell (two background tiles square), so ~10 columns x 9 rows are visible at
+# once - matching what you'd actually see in the emulator window at a time, before the
+# camera scrolls further. The viewport is just centered on the player and clamped to
+# the 0-15 grid bounds; there's no traced camera/scroll register behind this, so it's
+# an approximation, not pixel-exact.
+VIEWPORT_WIDTH = 10
+VIEWPORT_HEIGHT = 9
+
+
+def viewport_bounds(player_row: int, player_col: int, width: int = VIEWPORT_WIDTH, height: int = VIEWPORT_HEIGHT):
+    row_start = max(0, min(GRID_SIZE - height, player_row - height // 2))
+    col_start = max(0, min(GRID_SIZE - width, player_col - width // 2))
+    return row_start, col_start
+
+
+def read_viewport_grid(memory, width: int = VIEWPORT_WIDTH, height: int = VIEWPORT_HEIGHT):
+    """Returns (room, player_row, player_col, row_start, col_start, grid[row][col])
+    for a width x height window centered on the player."""
+    room = memory[ROOM_INDEX_ADDR]
+    player_row = memory[PLAYER_ROW_ADDR]
+    player_col = memory[PLAYER_COL_ADDR]
+    row_start, col_start = viewport_bounds(player_row, player_col, width, height)
+    grid = [
+        [read_cell(memory, room, row_start + r, col_start + c) for c in range(width)]
+        for r in range(height)
+    ]
+    return room, player_row, player_col, row_start, col_start, grid
+
+
 def col_letter(col: int) -> str:
     return chr(ord("A") + col)
