@@ -1139,9 +1139,36 @@ echten Tiles aus der Raumkarte in den `$9800`-Bereich schreibt, wurde noch nicht
 prüft vermutlich nicht "ist das Tile == `$5f`", sondern zeichnet einfach bei jeder Bewegung
 unbedingt einen kleinen Bereich um die neue Position neu, unabhängig davon ob Dunkelheit
 aktiv ist; der Unterschied zu normalen Räumen wäre dann nur, dass dunkle Räume beim Betreten
-mit `$5f` statt der echten Tiles vorinitialisiert werden). Die "Kerze/Akari"-Item-Identität
-(User: ein Item im Inventar erhellt einmalig den ganzen aktuellen Screen und wird dabei
-verbraucht) wurde **nicht** getestet — Inventar war `[1,3,2,10,7,13,24,0]` (7=Orb, 24=Schwert
-+1 bekannt; 1/2/3/10/13 Kandidaten für Akari), aber bei HP 3/10 war ein Testlauf zu riskant
-(ein unbekannter Itemeffekt könnte z.B. ein Fallen-Trigger sein). Braucht entweder einen
-weniger riskanten Save (höhere HP) oder eine bewusste Entscheidung, das Risiko einzugehen.
+mit `$5f` statt der echten Tiles vorinitialisiert werden).
+
+## Akari (Kerze) GETESTET — User hat das Risiko bei HP 3/10 bewusst akzeptiert
+
+Item-Screen über **A auf freiem Feld** erreicht (nicht Start/Camp-Menü — das zeigt nur
+Map/Status/BGM/Reset). Durch die Item-Icons navigiert und Namen im Textfeld unten abgelesen:
+
+| Slot | Itemtyp | Name (Item-Screen) | Bedeutung |
+|---|---|---|---|
+| 0 | `$01` | カイフク (Kaifuku) | Heilung |
+| 1 | `$03` | ファイヤー (Faiyaa) | Feuer |
+| 2 | `$02` | ドクケシ (Dokukeshi) | Gift heilen |
+| 3 | `$0a` | トウメイ (Toumei) | Unsichtbarkeit |
+| 4 | `$07` | オーブ (Oobu) | Orb (Quest-Item, bereits bekannt) |
+| 5 | `$0d` | **アカリ (Akari)** | **Licht** — das gesuchte Kerzen-Item! |
+| 6 | `$18` | マホウノケン (Mahou no Ken) | Schwert +1 (bereits bekannt) |
+
+**Akari benutzt** (Cursor auf Slot 5, A gedrückt): Inventarplatz wurde sofort auf `0`
+geleert (verbraucht, Einmal-Effekt) und die Anzahl dunkler `$5f`-Tiles im sichtbaren Bereich
+fiel von 204 auf 136 — ein deutlich größerer Teil des Raums wurde auf einen Schlag
+aufgedeckt (kein andauernder Lichtradius-Buff, sondern ein einmaliger "Burst"). Per
+Screenshot visuell bestätigt: vorher/nachher zeigt sichtbar mehr Raum (Mauern, Boden).
+
+**Interessante Randnotiz:** Das Monster in dem neu erhellten Bereich blieb weiterhin nur als
+Augenpaar-Sprite sichtbar — die "Raum aufdecken"-Logik (worauf Akari wirkt) und die "Monster
+als echtes Sprite zeigen"-Logik (wirkt erst bei tatsächlicher Annäherung) sind also zwei
+unabhängige Systeme. Nichts ist schiefgegangen trotz HP 3/10 — kein Fallen-Effekt o.ä.
+
+Nebenbei zwei weitere Item-IDs bestätigt: `$01`=Kaifuku (Heilung), `$02`=Dokukeshi
+(Gift-Heilmittel), `$03`=Fire, `$0a`=Toumei (Unsichtbarkeit). Alles in
+`wiki/Item-System.md`/`wiki/Dungeon-Mechanics.md`/`wiki/Open-Questions.md` nachgezogen.
+Reiner Dokumentations-Fund (Item-Screen-Namen per PyBoy-Input-Navigation ausgelesen), keine
+Code-Änderung nötig.

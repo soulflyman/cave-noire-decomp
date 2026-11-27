@@ -138,10 +138,17 @@ hasn't been located yet - a search for `$5f` used as an immediate comparison con
 banks 0/1 came up empty, suggesting the redraw doesn't check "is this tile still dark" but
 unconditionally redraws a small area around the new position every move (in both dark and
 normal rooms alike), with the darkness-specific part only being that affected rooms
-pre-fill their unexplored tiles with `$5f` at load time rather than the real tile. The
-`Akari`/candle item (confirmed present in the test inventory, not yet tested due to
-critically low HP in that specific savestate) still needs a live test to confirm it lights
-up the whole current screen and is consumed on use, as described.
+pre-fill their unexplored tiles with `$5f` at load time rather than the real tile.
+
+**The `Akari` item, live-tested** (item type `$0d`, item-screen name アカリ confirmed) despite
+the savestate's critically low HP (3/10) - risk accepted and nothing went wrong: using it
+from the item screen clears its inventory slot (consumed, one-shot) and immediately reveals
+a large chunk of the dark tilemap in one go (dark `$5f` tile count dropped from 204 to 136
+in a single use) - a "light up more of this room now" burst, not a lasting radius buff.
+Screenshots before/after confirm a visibly much larger room revealed. Interestingly, the
+monster that was in the newly-lit area was **still** rendered only as the eye-pair sprite
+afterwards - so the "reveal nearby tiles" system (room geometry) and the "reveal a monster's
+real sprite" system are independent; Akari only affects the former.
 
 ## Not located at all
 

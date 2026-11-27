@@ -9,10 +9,10 @@ fastest way to contribute.
 
 - ~~**Darkness/torch mechanic**~~ — confirmed: dither tile is raw VRAM id `$5f`, the
   monster shows as a 2-sprite eye-pair (OAM tile `140`), and it's a real dynamic
-  fog-of-war with memory (revealed tiles stay revealed). The exact per-move reveal
-  routine itself is still unlocated — see [Dungeon Mechanics](Dungeon-Mechanics). Also
-  still open: live-testing the `Akari`/candle item's full-screen-light effect (present in
-  the confirming savestate's inventory but untested there due to critically low HP).
+  fog-of-war with memory (revealed tiles stay revealed). `Akari` (item `$0d`) is a
+  one-shot "reveal more of this room now" burst, consumed on use, that does **not** reveal
+  hidden monsters (those need separate approach). The exact per-move reveal routine itself
+  is still unlocated — see [Dungeon Mechanics](Dungeon-Mechanics).
 - **"!!" floor-crack warning icon**: plausible code match, not dynamically triggered. Needs
   a savestate on/next to an actually-cracking floor tile (tile ID `$1d` or `$23` ahead of
   the player).

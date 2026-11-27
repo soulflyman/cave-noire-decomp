@@ -52,21 +52,28 @@ runs the concrete effect.
 
 | ID | Effect | StrategyWiki match |
 |---|---|---|
+| `$01` | Heal (item-screen name confirmed: カイフク/Kaifuku) | "Kaifuku" |
+| `$02` | Cure poison (item-screen name confirmed: ドクケシ/Dokukeshi) | "Dokukeshi" |
+| `$03` | Fire damage/effect (item-screen name confirmed: ファイヤー/Faiyaa) | "Fire" |
 | `$06` | Temporary attack buff, magnitude/duration scaled by Lucky | Likely "Kougeki" (temporary attack increase) |
-| `$07` | Orb — counted toward Orb quest progress (`$c16c`) | "Orb" |
+| `$07` | Orb — counted toward Orb quest progress (`$c16c`); item-screen name confirmed オーブ/Oobu | "Orb" |
+| `$0a` | Invisibility (item-screen name confirmed: トウメイ/Toumei) | "Toumei" |
+| `$0d` | Light up the current room (item-screen name confirmed: アカリ/Akari). Confirmed live: using it clears the inventory slot and immediately redraws a larger chunk of the dark tilemap (dark `$5f` tile count dropped from 204 to 136 in one use on a real dark-floor savestate) - a one-shot "reveal more of this room" effect, not a lasting light radius. Monsters within the newly-lit area are **still** shown only as the eye-pair sprite until actually approached - the Akari reveal and the "monster visible" reveal are separate systems. | "Akari" |
 | `$12` | `wPlayerMaxHP += 1`, doesn't occupy a slot | "HP no Moto" (+1 max HP, doesn't occupy a slot) |
-| `$18`-`$1b` | Sword, +1/+2/+3/+5 attack | Mahou/Honoo/Inazuma/Densetsu no Ken |
+| `$18`-`$1b` | Sword, +1/+2/+3/+5 attack; item-screen name confirmed for `$18`: マホウノケン/Mahou no Ken | Mahou/Honoo/Inazuma/Densetsu no Ken |
 | `$1c`-`$1f` | Shield, +1/+2/+3/+5 defense | Ki/Tetsu/Hagane/Densetsu no Tate |
 
 ## Not yet identified
 
-About 18 more item type IDs from the StrategyWiki list haven't been individually mapped to
-a numeric ID yet: Kaifuku (heal), Dokukeshi (cure poison), Tobu (warp), Change (weaken
-monsters), Mamori (temp. defense), Toumei (invisibility), Lucky (+1 Lucky, no slot), Oriru
-(place stairs), Akari (remove darkness), Fire, Faigaa, Ganseki (fill hole/rock barrier),
-Kagi (fairy cage key), Gold (no slot). Two structurally identical "scan all 4 directions for
-a matching tile type" routines were found (bank 1, `$53a2` and `$572c`) that are plausibly
-Ganseki and Oriru respectively, but not individually confirmed.
+About 9 more item type IDs from the StrategyWiki list haven't been individually mapped to a
+numeric ID yet: Tobu (warp), Change (weaken monsters), Mamori (temp. defense), Lucky
+(+1 Lucky, no slot), Oriru (place stairs), Faigaa, Ganseki (fill hole/rock barrier), Kagi
+(fairy cage key - `$0d` in `save_001.state`/`save_003.state` both turned out to be Akari,
+not Kagi, so this one's ID is still unconfirmed), Gold (no slot, but see `$10`/`$11` in
+[Dungeon Mechanics](Dungeon-Mechanics) for the actual loose-gold-pile item types, which may
+or may not be what the wiki calls "Gold"). Two structurally identical "scan all 4 directions
+for a matching tile type" routines were found (bank 1, `$53a2` and `$572c`) that are
+plausibly Ganseki and Oriru respectively, but not individually confirmed.
 
 See [Open Questions](Open-Questions) for what a savestate would need to look like to confirm
 each of these.
