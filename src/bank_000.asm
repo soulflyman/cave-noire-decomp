@@ -11414,7 +11414,17 @@ jr_000_3e75:
     ret                                           ; $3e88: $c9
 
 
-Jump_000_3e89:
+; $c125 state 23: secret-passage reveal. Entered when the player bumps into a
+; wall tile that has a pending-discovery bit set in $c20f (one bit per
+; cardinal direction). $c263 is a ~16-tick delay (the "unlock" pause the
+; player feels before being able to walk through); once it elapses, whichever
+; $c20f bit is set selects one of four per-direction handlers below, each of
+; which permanently clears that bit, mirrors the equivalent bit on the
+; neighbor room's own header (via the $206b room-link word table, the same
+; table the warp mechanic uses), and walks the player through. If no bit is
+; set (already revealed), falls back to the normal state 0/1.
+; Confirmed live via save_003.state (room 1 -> room 2, south passage, bit 2).
+Jump_000_3e89_SecretPassageDispatch:
     ld hl, $c263                                  ; $3e89: $21 $63 $c2
     dec [hl]                                      ; $3e8c: $35
     ret nz                                        ; $3e8d: $c0
@@ -11422,16 +11432,16 @@ Jump_000_3e89:
     ld [hl], $10                                  ; $3e8e: $36 $10
     ld a, [$c20f]                                 ; $3e90: $fa $0f $c2
     rra                                           ; $3e93: $1f
-    jp c, Jump_000_3eae                           ; $3e94: $da $ae $3e
+    jp c, Jump_000_3eae_SecretPassageDir0                           ; $3e94: $da $ae $3e
 
     rra                                           ; $3e97: $1f
-    jp c, Jump_000_3f04                           ; $3e98: $da $04 $3f
+    jp c, Jump_000_3f04_SecretPassageDir1                           ; $3e98: $da $04 $3f
 
     rra                                           ; $3e9b: $1f
-    jp c, Jump_000_3ed9                           ; $3e9c: $da $d9 $3e
+    jp c, Jump_000_3ed9_SecretPassageDir2                           ; $3e9c: $da $d9 $3e
 
     rra                                           ; $3e9f: $1f
-    jp c, Jump_000_3f2d                           ; $3ea0: $da $2d $3f
+    jp c, Jump_000_3f2d_SecretPassageDir3                           ; $3ea0: $da $2d $3f
 
     ld a, $00                                     ; $3ea3: $3e $00
     ld [$c125], a                                 ; $3ea5: $ea $25 $c1
@@ -11440,10 +11450,10 @@ Jump_000_3e89:
     ret                                           ; $3ead: $c9
 
 
-Jump_000_3eae:
+Jump_000_3eae_SecretPassageDir0:
     ld a, [$c500]                                 ; $3eae: $fa $00 $c5
     ld [$c262], a                                 ; $3eb1: $ea $62 $c2
-    call Call_000_3f56                            ; $3eb4: $cd $56 $3f
+    call Call_000_3f56_FinalizeSecretPassageDir0                            ; $3eb4: $cd $56 $3f
     ret z                                         ; $3eb7: $c8
 
     ld hl, $c20f                                  ; $3eb8: $21 $0f $c2
@@ -11460,16 +11470,16 @@ Jump_000_3eae:
     ld [$c262], a                                 ; $3ece: $ea $62 $c2
 
 jr_000_3ed1:
-    call Call_000_3f7c                            ; $3ed1: $cd $7c $3f
+    call Call_000_3f7c_FinalizeSecretPassageDir2                            ; $3ed1: $cd $7c $3f
     jr c, jr_000_3ed1                             ; $3ed4: $38 $fb
 
-    jp Jump_000_3e89                              ; $3ed6: $c3 $89 $3e
+    jp Jump_000_3e89_SecretPassageDispatch                              ; $3ed6: $c3 $89 $3e
 
 
-Jump_000_3ed9:
+Jump_000_3ed9_SecretPassageDir2:
     ld a, [$c500]                                 ; $3ed9: $fa $00 $c5
     ld [$c262], a                                 ; $3edc: $ea $62 $c2
-    call Call_000_3f7c                            ; $3edf: $cd $7c $3f
+    call Call_000_3f7c_FinalizeSecretPassageDir2                            ; $3edf: $cd $7c $3f
     ret c                                         ; $3ee2: $d8
 
     ld hl, $c20f                                  ; $3ee3: $21 $0f $c2
@@ -11486,16 +11496,16 @@ Jump_000_3ed9:
     ld [$c262], a                                 ; $3ef9: $ea $62 $c2
 
 jr_000_3efc:
-    call Call_000_3f56                            ; $3efc: $cd $56 $3f
+    call Call_000_3f56_FinalizeSecretPassageDir0                            ; $3efc: $cd $56 $3f
     jr z, jr_000_3efc                             ; $3eff: $28 $fb
 
-    jp Jump_000_3e89                              ; $3f01: $c3 $89 $3e
+    jp Jump_000_3e89_SecretPassageDispatch                              ; $3f01: $c3 $89 $3e
 
 
-Jump_000_3f04:
+Jump_000_3f04_SecretPassageDir1:
     ld a, [$c500]                                 ; $3f04: $fa $00 $c5
     ld [$c262], a                                 ; $3f07: $ea $62 $c2
-    call Call_000_3fa3                            ; $3f0a: $cd $a3 $3f
+    call Call_000_3fa3_FinalizeSecretPassageDir1                            ; $3f0a: $cd $a3 $3f
     ret c                                         ; $3f0d: $d8
 
     ld hl, $c20f                                  ; $3f0e: $21 $0f $c2
@@ -11511,16 +11521,16 @@ Jump_000_3f04:
     ld [$c262], a                                 ; $3f22: $ea $62 $c2
 
 jr_000_3f25:
-    call Call_000_3fc9                            ; $3f25: $cd $c9 $3f
+    call Call_000_3fc9_FinalizeSecretPassageDir3                            ; $3f25: $cd $c9 $3f
     jr z, jr_000_3f25                             ; $3f28: $28 $fb
 
-    jp Jump_000_3e89                              ; $3f2a: $c3 $89 $3e
+    jp Jump_000_3e89_SecretPassageDispatch                              ; $3f2a: $c3 $89 $3e
 
 
-Jump_000_3f2d:
+Jump_000_3f2d_SecretPassageDir3:
     ld a, [$c500]                                 ; $3f2d: $fa $00 $c5
     ld [$c262], a                                 ; $3f30: $ea $62 $c2
-    call Call_000_3fc9                            ; $3f33: $cd $c9 $3f
+    call Call_000_3fc9_FinalizeSecretPassageDir3                            ; $3f33: $cd $c9 $3f
     ret z                                         ; $3f36: $c8
 
     ld hl, $c20f                                  ; $3f37: $21 $0f $c2
@@ -11536,13 +11546,13 @@ Jump_000_3f2d:
     ld [$c262], a                                 ; $3f4b: $ea $62 $c2
 
 jr_000_3f4e:
-    call Call_000_3fa3                            ; $3f4e: $cd $a3 $3f
+    call Call_000_3fa3_FinalizeSecretPassageDir1                            ; $3f4e: $cd $a3 $3f
     jr c, jr_000_3f4e                             ; $3f51: $38 $fb
 
-    jp Jump_000_3e89                              ; $3f53: $c3 $89 $3e
+    jp Jump_000_3e89_SecretPassageDispatch                              ; $3f53: $c3 $89 $3e
 
 
-Call_000_3f56:
+Call_000_3f56_FinalizeSecretPassageDir0:
     ld a, [$c262]                                 ; $3f56: $fa $62 $c2
     ld hl, $206b                                  ; $3f59: $21 $6b $20
     call Call_000_041a                            ; $3f5c: $cd $1a $04
@@ -11571,7 +11581,7 @@ Call_000_3f56:
     ret                                           ; $3f7b: $c9
 
 
-Call_000_3f7c:
+Call_000_3f7c_FinalizeSecretPassageDir2:
     ld a, [$c262]                                 ; $3f7c: $fa $62 $c2
     ld hl, $206b                                  ; $3f7f: $21 $6b $20
     call Call_000_041a                            ; $3f82: $cd $1a $04
@@ -11601,7 +11611,7 @@ Call_000_3f7c:
     ret                                           ; $3fa2: $c9
 
 
-Call_000_3fa3:
+Call_000_3fa3_FinalizeSecretPassageDir1:
     ld a, [$c262]                                 ; $3fa3: $fa $62 $c2
     ld hl, $206b                                  ; $3fa6: $21 $6b $20
     call Call_000_041a                            ; $3fa9: $cd $1a $04
@@ -11632,7 +11642,7 @@ Jump_000_3fc0:
     ret                                           ; $3fc8: $c9
 
 
-Call_000_3fc9:
+Call_000_3fc9_FinalizeSecretPassageDir3:
     ld a, [$c262]                                 ; $3fc9: $fa $62 $c2
     ld hl, $206b                                  ; $3fcc: $21 $6b $20
     call Call_000_041a                            ; $3fcf: $cd $1a $04

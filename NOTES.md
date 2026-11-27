@@ -1271,3 +1271,54 @@ jetzt sichtbar näher). Exakt das vom User beschriebene Verhalten.
 Einzel- und Doppel-Druck-Testlauf zeigte keine eindeutig isolierbare "Doppel-Tipp-Zähler"-
 Adresse — zu viele normale bewegungsbedingte Änderungen überlagern das Signal). Reiner
 Dokumentations-Fund (keine Code-Änderung), Verhalten aber vollständig dynamisch bestätigt.
+
+## Geheimgang (versteckte Wand) GEFUNDEN UND VOLLSTÄNDIG IM CODE NACHVOLLZOGEN (`save_003.state`)
+
+User-Beschreibung: Spieler steht ein Feld nördlich eines versteckten Durchgangs im Süden;
+eine "?"-Sprechblase erscheint über dem Kopf, dieselbe Warnung auch ein Feld weiter links/
+rechts (die Wand-Warnung ist also immer drei Felder breit, der Durchgang liegt in der Mitte).
+Öffnet sich laut User durch einfaches Dranlaufen.
+
+**Erster (falscher) Ansatz:** Die statische Hypothese aus der letzten Session
+("?"-Icon = `Call_000_2f48`, Tile-Rohwert `$09`, dieselbe generische Icon-Check-Familie wie
+die "!!"-Rissbodenwarnung `Call_000_2f3f`/`$1d`) ließ sich live **nicht** bestätigen:
+`Call_000_2f48` wurde während des gesamten Tests nie aufgerufen (Hook blieb leer), obwohl
+die "?"-Blase sichtbar war und der Durchgang sich tatsächlich öffnete. Die Rohwerte der
+Nachbarfelder (per Raum-Adressformel aus der Loch-Sprung-Session dekodiert) ergaben zudem
+ein unplausibles Bild (Spielerfeld selbst las sich als `9`) — dieser Lead war eine Sackgasse,
+genau wie beim Loch-Sprung zuvor.
+
+**Durchbruch per Verhaltenstest:** Norden (echte massive Wand) blockiert den Spieler
+**dauerhaft** (`$c125` bleibt für immer im "Anprall"-Zustand `7`, auch nach 60+ Eingabe-
+Zyklen). Süden (der beschriebene Geheimgang) hingegen geht nach einer kurzen Verzögerung
+ganz regulär auf: `$c125` wechselt zu Zustand `23`, bleibt dort für exakt ~64 Ticks
+(ein fester Countdown), und der Spieler läuft danach einfach weiter — Raumwechsel `1 → 2`
+bestätigt.
+
+**Vollständig im Code nachvollzogen:** Zustand `23` (`$c125`-Sprungtabelle, Index 23,
+Adresse `$3e89`) ist der echte Geheimgang-Enthüllungs-Zustand, neu benannt
+`Jump_000_3e89_SecretPassageDispatch`:
+- `$c263` ist ein Countdown (neu geladen mit `$10`=16), der die spürbare kurze Pause beim
+  "Freischalten" erzeugt.
+- `$c20f` ist ein **Pro-Raum-Bitfeld, ein Bit pro Himmelsrichtung**, das markiert, welche
+  Wandseite(n) noch einen unentdeckten Geheimgang haben. Live bestätigt: beim Anlaufen der
+  Südwand wurde Bit 2 gesetzt (`$c20f = 0b100`).
+- Je nach gesetztem Bit springt der Dispatcher in einen von vier Richtungs-Handlern
+  (`Jump_000_3eae_SecretPassageDir0` .. `Jump_000_3f2d_SecretPassageDir3`, Bit 0–3). Live
+  bestätigt: Bit 2 → `Jump_000_3ed9_SecretPassageDir2` (Süden).
+- Jeder Handler löscht sein Bit **dauerhaft** in `$c20f`, lädt daraufhin über dieselbe
+  Raum-Verknüpfungstabelle `$206b` (die auch der Warp-Mechanik zugrunde liegt) den
+  Ziel-Raum-Index und spiegelt das passende Bit in der Kopfzeile des Nachbarraums — der
+  Durchgang ist danach von beiden Seiten aus dauerhaft offen, kein erneutes Suchen nötig.
+- Dafür zuständige Helfer umbenannt: `Call_000_3f56_FinalizeSecretPassageDir0`,
+  `Call_000_3fa3_FinalizeSecretPassageDir1`, `Call_000_3f7c_FinalizeSecretPassageDir2`,
+  `Call_000_3fc9_FinalizeSecretPassageDir3`.
+
+Live-Werteverlauf (south-Test): `$c20f` `0b100` → (nach Countdown) `0` und `$c262` (Ziel-
+Raum-Scratch) → `2`, danach `$c125` zurück auf `0`/`1`, Spieler läuft normal weiter,
+`$c500` wechselt von `1` auf `2`. Deckt sich exakt mit dem erwarteten Verhalten.
+
+Die drei-Felder-breite "?"-Anzeige selbst (die visuelle Warnung, bevor man anläuft) wurde
+nicht bis zur exakten Render-Routine zurückverfolgt — aber der eigentliche Öffnungs-
+Mechanismus (das, worum es dem User ging) ist jetzt vollständig im Code belegt und per
+Rebuild bit-identisch verifiziert (`10d92861e262069ce31559e12b927aa0`).

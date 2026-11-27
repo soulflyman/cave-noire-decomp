@@ -103,7 +103,7 @@ Three structurally similar routines were found that match this description close
 | Routine | Trigger | Icon tile | Hypothesis |
 |---|---|---|---|
 | `Call_000_2f3f` → `Jump_000_3323` | Random check (`Call_000_3e08`) + tile ID match (`$1d`/`$23`) | `$5a` | "!!" floor crack warning |
-| `Call_000_2f48` → `Jump_000_3327` | Random check + tile ID match (`$09`), scanned across all 4 directions | `$42` | "?" secret wall warning |
+| `Call_000_2f48` → `Jump_000_3327` | Random check + tile ID match (`$09`), scanned across all 4 directions | `$42` | Hypothesized as the "?" secret wall warning - **not confirmed; the real reveal mechanism is a completely different routine, see below** |
 | `Call_000_3772` → `Jump_000_332b` | Deterministic tile check (`== $0f`), no randomness | `$56` | Hypothesized as a hole-jump icon - **not confirmed, likely wrong** (see below) |
 
 All three converge on shared drawing code (`jr_000_332d`) that writes a small 2-tile sprite
@@ -149,6 +149,56 @@ exist in the item-effect code (`Call_000_2f48` used from `$53a2`, `Call_000_2f4c
 `$572c`) — plausibly the "Ganseki" (fill hole/rock barrier) and "Oriru" (place stairs on
 adjacent tile) item effects, which both need to find a qualifying adjacent tile. Not
 individually confirmed.
+
+### The secret-passage ("?") mechanic, confirmed live
+
+Tested on a savestate standing one tile north of a hidden south-side passage, with a "?"
+speech bubble shown above the player's head (and, per the description, also shown one tile
+further left/right along the same wall segment - the warning is three tiles wide, the real
+passage is the middle one).
+
+The original `Call_000_2f48`/`$09` hypothesis above turned out to be another dead end here,
+same lesson as the hole-jump investigation: that routine was never called during the entire
+test (hooked, zero hits), even though the "?" bubble was visibly on-screen and the passage
+genuinely opened.
+
+**What actually happens**, found via direct behavioral A/B testing plus a full trace of the
+real code path: walking into a genuine solid wall (tested: north) blocks the player forever
+(`$c125` state `7`, "bump" state, never resolves no matter how long you hold the direction).
+Walking into the described secret passage (south) instead puts the player into `$c125` state
+`23` for a fixed ~64-tick delay, after which the wall is simply gone and the player walks
+straight through - this is the "open it by just walking into it" behavior described from
+play.
+
+State 23's handler (`$3e89`, the `$c125` jump table's 24th entry, renamed
+`Jump_000_3e89_SecretPassageDispatch`) is the real reveal routine:
+
+- `$c263` is reloaded with `$10` and counted down each pass - this is the short pause the
+  player feels before the wall actually opens.
+- `$c20f` is a **per-room bitmask, one bit per cardinal direction**, marking which wall
+  face(s) still have an undiscovered secret passage. Confirmed live: bumping the south wall
+  set bit 2 (`$c20f = 0b0100`).
+- Depending on which bit is set, the dispatcher jumps to one of four per-direction handlers
+  (renamed `Jump_000_3eae_SecretPassageDir0` .. `Jump_000_3f2d_SecretPassageDir3`, for bits
+  0-3). Confirmed live: bit 2 → `Jump_000_3ed9_SecretPassageDir2`.
+- Each handler **permanently clears its bit** in `$c20f`, looks up the linked neighbor room
+  through the same `$206b` room-link word table the warp mechanic uses, and sets the
+  mirrored bit in that neighbor room's own header - so the passage is now open from both
+  sides and never needs re-discovering. The matching helpers were renamed
+  `Call_000_3f56_FinalizeSecretPassageDir0` / `..Dir1` (`Call_000_3fa3`) / `..Dir2`
+  (`Call_000_3f7c`) / `..Dir3` (`Call_000_3fc9`).
+- If no bit is set (nothing left to discover that way), it falls back to the normal
+  state 0/1 idle handling.
+
+Live value trace for the south test: `$c20f` `0b0100` → (after the ~64-tick delay) `0`,
+scratch room-index register `$c262` → `2` (the destination room), then `$c125` returns to
+`0`/`1` and `$c500` (current room) flips from `1` to `2` as the player walks through. Matches
+the description exactly: appears as a solid wall with a warning icon, then simply opens after
+walking into it.
+
+Not tracked down: the exact render routine for the three-tile-wide "?" warning bubble itself,
+and how/when `$c20f`'s bits get set in the first place (room init data vs. some other
+precondition).
 
 ## Darkness / torch visibility
 

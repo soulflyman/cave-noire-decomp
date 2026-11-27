@@ -20,9 +20,14 @@ fastest way to contribute.
   in the tested room; what the community calls "a hole" is this same crack tile. See
   [Dungeon Mechanics](Dungeon-Mechanics). Still open: the exact code that detects the fast
   double-press and triggers the 2-tile jump.
-- **"?" secret-wall warning icon**: still not dynamically triggered. Needs a savestate with
-  a tile ID `$09` adjacent to the player (unconfirmed whether this hypothesis is even
-  right, given the hole-jump one wasn't).
+- ~~**"?" secret-wall warning icon**~~ — confirmed, and the `Call_000_2f48`/`$09` hypothesis
+  was wrong (same lesson as the hole-jump one): the real mechanism is `$c125` state 23
+  (`Jump_000_3e89_SecretPassageDispatch`), gated by a per-room, per-direction bitmask at
+  `$c20f`. Bumping a wall with its bit set starts a ~64-tick delay, then permanently clears
+  the bit, links the neighbor room via the same `$206b` table the warp mechanic uses, and
+  lets the player walk straight through - matching "opens via simply walking into it". Still
+  open: the exact render routine for the "?" bubble itself, and how/when `$c20f`'s bits get
+  set in the first place. See [Dungeon Mechanics](Dungeon-Mechanics).
 - ~~**Warp mechanic**~~ — confirmed exactly as hypothesized: `$c427`/`$c428` are a warp
   pair's two room-index endpoints, and stepping onto the tile + pressing A teleports to
   whichever endpoint isn't the current room, same floor, different room. See
