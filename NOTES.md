@@ -1472,3 +1472,30 @@ in der neu gefundenen Tabelle.
 Vollständige Adress-Tabelle als Kommentar direkt im Code (`src/bank_001.asm` bei
 `Call_001_5190_ItemUseEffectDispatch`) und in `wiki/Item-System.md` dokumentiert.
 Rebuild bleibt bit-identisch.
+
+## Monster-Stat-Tabelle gefunden (Task #2, rein statisch)
+
+Den kompletten Spawn-Pfad für einen neuen Monster-Slot nachvollzogen:
+1. `Call_001_4abe` (Bank 1) findet den ersten freien Slot im `$c5c0`-Array.
+2. `Jump_001_4a7f` (Bank 1) nullt den 16-Byte-Slot und füllt Offset `$00`-`$03`
+   (Klassen-Index/Typ-ID/Reihe/Spalte).
+3. `Call_000_1142_LoadMonsterClassStats` (Bank 0) kopiert **6 Byte** aus einer Tabelle
+   in Bank 2 (`$5ea2`), indiziert über denselben Klassen-Wert, in Offset `$04`-`$09`.
+
+**Wichtigster Fund:** Offset `$00` ist gar kein separates "Belegt"-Flag mit mysteriösem
+Zusatzwert, wie wir dachten — es ist **direkt der Index in diese Stat-Tabelle**. Komplett
+aus der ROM dekodiert (32 Klassen). Zweiter wichtiger Fund: Offset `$09` ist bei den
+meisten Klassen **nicht** gleich Offset `$06` (aktuelle HP) — z.B. Klasse 3: HP 6, aber
+`$09`=3. Das widerlegt endgültig die alte Annahme "`$09` = Max-HP, gleich Start-HP", die
+nur beim einen getesteten Krabben-Kampf zufällig gepasst hatte.
+
+Nebenbei die früher als "keine Monster, sondern Raum-Deko" eingestuften Slots (Klassen
+`18`/`19`/`22`) nochmal angeschaut: deren Stat-Datensätze sehen völlig normal aus, nicht
+anders als bestätigte echte Monster. Diese alte Schlussfolgerung war also vermutlich
+vorschnell (beruhte nur auf "kein passendes Sprite in diesem einen Test gefunden") und
+sollte nochmal mit längerer Live-Beobachtung überprüft werden.
+
+Noch offen: welcher Klassen-Index zu welcher Typ-ID (und damit zu welchem
+StrategyWiki-Monster) gehört — das ist eine andere Tabelle, die noch nicht gefunden
+wurde. Code kommentiert in `src/bank_000.asm`/`bank_001.asm`, volle Tabelle in
+`wiki/Monster-System.md`. Rebuild bleibt bit-identisch.

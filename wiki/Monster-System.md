@@ -10,15 +10,68 @@ the slot-reset loop (`ld hl,$c5c0; ld b,$24; ld de,$0010`).
 
 | Offset | Meaning | Confidence |
 |---|---|---|
-| `$00` | **Not** a simple occupied flag as first thought — `0` still means empty slot, but live non-zero values vary by entry: `6` for the Crab combat test, `4`/`3` for two more real monsters (see below), and `19` for three further slots that turned out to *not* be monsters at all (see "Non-monster entries" below). Looks more like a per-entry object/behavior-class tag. | Revised — "occupied" still holds for zero/non-zero, exact nonzero meaning open |
+| `$00` | **The "class" index** — doubles as "occupied" (`0` = empty slot) and as the direct index into the per-class stat table (see "The stat table, found" below). Not a species/type ID by itself; several different monster *types* can plausibly share one class entry if their base stats match. | **Confirmed** — see below |
 | `$01` | Monster type ID | Confirmed (compared directly against `$c420`, the type currently being processed by the per-turn dispatch loop) |
 | `$02` | Row (Y) position | Confirmed via OAM sprite position cross-check |
 | `$03` | Column (X) position | Confirmed via OAM sprite position cross-check |
-| `$04` | Blink/animation toggle — XOR'd with offset `$05` every 16 ticks. **Not** a position or combat field (don't confuse with `$0f`, which has a similar 0/2-oscillation look but is the real direction/RNG field) | Confirmed |
-| `$05`, `$07`, `$08` | Static per-type attributes (values `2`, `4`, `2` for Crab; `1`, `4`, `2` for both newer types below) — likely attack/defense/lucky-like stats | Open — `$05`/`$08` vary by type, `$07`=`4` constant so far |
+| `$04` | Blink/animation toggle — XOR'd with offset `$05` every 16 ticks, starts at whatever the class table says (usually `0`, but not always). **Not** a position or combat field (don't confuse with `$0f`, which has a similar 0/2-oscillation look but is the real direction/RNG field) | Confirmed |
+| `$05`, `$07`, `$08` | Static per-class attributes, copied from the stat table at spawn - likely attack/defense/lucky-like stats, not yet told apart from each other | Confirmed to come from the stat table; individual meaning still open |
 | `$06` | **Current HP.** Decreases with each hit taken; when it reaches 0, the entire slot is zeroed (including offset `$00`) | **Confirmed** — see below |
-| `$09` | **Not confirmed as max HP after all.** Was `3` for both newly-identified types below while their current HP (`$06`) read `5` and `6` respectively - current HP can't exceed a lower max. It only *looked* like max HP for Crab because that test happened to be read on an undamaged monster where both fields coincidentally matched; `$09` is more likely a different static stat (attack power?) that's unrelated to HP. | Revised — open again |
+| `$09` | Copied from the stat table at spawn, **but not generally equal to `$06`/current HP** - see "The stat table, found" below. The old assumption that this is always "max HP, equal to starting HP" only happened to hold for the one Crab fight tested so far; most class records show a different value here. Possibly a different static stat (attack?) rather than max HP. | Revised — spawn-time source confirmed, semantic meaning still open |
 | `$0f` | 2-3 bit direction/state field, doubles as the pseudo-RNG source — see [Combat System](Combat-System) | Confirmed |
+
+## The stat table, found (pure static analysis)
+
+Traced the full spawn path for a new monster slot:
+
+1. `Call_001_4abe` (bank 1, `$4abe`) finds the first empty slot in the `$c5c0` array.
+2. `Jump_001_4a7f` (bank 1, `$4a7f`) zeroes the whole 16-byte slot, then fills offsets
+   `$00`-`$03` from staging variables `$c224`/`$c227`/`$c225`/`$c226` (class index/type
+   ID/row/col).
+3. `Call_000_1142_LoadMonsterClassStats` (bank 0, `$1142`) copies a **6-byte record** from
+   a table at (bank 2) `$5ea2`, indexed by that same class value (`$c224`), into struct
+   offsets `$04`-`$09` in one shot.
+
+So offset `$00` isn't a separate "occupied flag plus mystery tag" at all — it's literally
+**the index into this stat table**, and the table is what the whole monster-system
+investigation had been missing. Decoded directly from ROM (class index -> `[$04, $05,
+$06, $07, $08, $09]`):
+
+```
+class  0: [ 0,  0,  0,  8,  0,  2]      class  1: [ 0,  0,  0,  8,  0,  2]
+class  2: [ 0,  2,  9,  5,  6,  4]      class  3: [ 0,  1,  6,  4,  4,  3]
+class  4: [ 0,  1,  5,  4,  2,  3]      class  5: [ 0,  2,  8,  5,  2,  4]
+class  6: [ 0,  2,  5,  4,  2,  5]      class  7: [ 0,  1,  6,  4,  4,  3]
+class  8: [ 0,  1,  4,  3,  2,  3]      class  9: [16,  2, 18,  6,  6,  6]
+class 10: [ 0,  1,  5,  4,  2,  3]      class 11: [ 8,  2, 18,  6,  6,  6]
+class 12: [24,  1, 32,  9,  5, 16]      class 13: [ 8,  1, 19,  7,  5,  7]
+class 14: [24,  2, 23,  7,  6,  7]      class 15: [24,  2, 32, 16,  5, 16]
+class 16: [28,  2, 32, 16,  5, 16]      class 17: [28,  2, 23,  8,  6,  7]
+class 18: [16,  1,  8,  6,  2,  5]      class 19: [ 0,  1,  7,  4,  2,  3]
+class 20: [ 0,  2, 20,  7,  6,  7]      class 21: [ 0,  1,  5,  3,  2,  2]
+class 22: [ 0,  1,  4,  3,  2,  1]      class 23: [ 0,  1,  1,  0,  1,153]
+class 24: [ 5,  2,  1,  5,  1,153]      class 25: [ 6,  0,  7,  4,  2,  4]
+class 26: [16,  2, 18,  5,  6,  4]      class 27: [24,  2, 24,  8,  6,  8]
+class 28: [24,  2,  5, 12,  9,  2]      class 29: [ 0, 29, 10,  8, 17,  0]
+class 30: [ 8, 17, 17, 18,  6,  5]      class 31: [25, 16, 13,  0,  0, 16]
+```
+
+Important: `$09` (the 6th value) is **not** generally equal to `$06` (3rd value, "current
+HP") — e.g. class 3 is `[0, 1, 6, 4, 4, 3]`, HP 6 but `$09`=3. This directly contradicts
+the old "offset `$09` = max HP, same as starting HP" assumption, confirming the doubts
+raised earlier from live monster-array dumps. It only looked that way for the one
+confirmed Crab fight. Whether `$09` is a different static stat (attack power is the
+leading guess) or whether spawned values get scaled by dungeon depth before use (which
+could reconcile things) is not confirmed either way.
+
+This also puts the earlier "non-monster entries" conclusion in doubt: slots seen with
+class values `18`/`19`/`22` (previously assumed to be room decorations reusing the
+array, since no matching OAM sprite or movement was observed in those specific tests)
+turn out to have completely ordinary-looking stat records in this table (e.g. class 19:
+`[0,1,7,4,2,3]`, indistinguishable in shape from confirmed real monsters). They may well
+be real monsters after all that simply weren't rendered/moving in that particular
+capture window, rather than a separate "decoration" system - needs re-checking with a
+longer live observation.
 
 ## How the HP field was confirmed
 
@@ -90,16 +143,22 @@ High confidence: **monster type `$01` = Crab**.
 
 ## What's still open
 
-- The ROM table that populates offsets `$05`/`$07`/`$08`/`$09` from the monster type at spawn
-  time hasn't been located — needed to map the remaining ~20 StrategyWiki monster types to
-  their internal type IDs. (One dead-end worth noting: `Call_001_518a` looked promising but
-  actually indexes by current dungeon level, `$c102`, not monster type — it's unrelated.)
-- Offset `$00`'s meaning is still open - confirmed to vary a lot (`6`, `4`, `3`, `5`, `7`,
-  `18`, plus `19`/`22` for non-monster entries) with no clear pattern spotted yet.
-- Whether `$02`=Barokusu or Bukirika (both HP 5, both non-moving) — need a clearer sprite
-  reference or a savestate where the other one is also present for comparison.
+- **Mapping class index -> StrategyWiki species name.** The class table is found, but
+  class index isn't the same thing as the `$01` type ID (type `$01`=Crab presumably uses
+  one specific class, but which one isn't confirmed - the live Crab fight data doesn't
+  cleanly match any single class record above, see "The stat table, found"). Needs either
+  a live read of `$c224` right at spawn time for a known species, or a separate table
+  mapping type ID -> class index that hasn't been located yet.
+- **What offset `$09` actually is**, given it's confirmed to not just duplicate current
+  HP - needs a live combat test on a monster whose class record has `$09` clearly
+  different from `$06`, to see if it's attack power, defense, or something else.
+- Whether `$02` (the stationary "boulder" monster) = Barokusu or Bukirika (both HP 5,
+  both non-moving) — need a clearer sprite reference or a savestate with both present.
 - The `$01`-type HP-8 variant vs. the confirmed HP-5 Crab — needs a live combat test.
 - The big/multi-tile monster struct layout (4-OAM creatures) — needs tracing from scratch,
   probably a different code path than the small-monster one documented above.
+- Re-check whether class values `18`/`19`/`22` really are non-monster decorations or just
+  ordinary monsters that weren't observed moving/weren't visible in those specific tests
+  (see "The stat table, found").
 
 See [Open Questions](Open-Questions) for what kind of savestate would help close these gaps.

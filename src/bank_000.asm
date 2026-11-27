@@ -3341,7 +3341,21 @@ Jump_000_113e:
     jp Jump_000_04aa                              ; $113f: $c3 $aa $04
 
 
-Call_000_1142:
+; The monster per-"class" stat table, found while tracing where monster array offsets
+; $05/$07/$08/$09 get their starting values from (see wiki/Monster-System.md). Called
+; from Jump_001_4a7f right after a new monster slot is zeroed and offsets 0-3 are filled
+; in ($00=class index from $c224, $01=type ID, $02/$03=row/col) - hl already points at
+; the new slot's offset 4 at that point. Copies a 6-byte record from a table at (bank 2)
+; $5ea2, indexed by that same class value (`$c224`, i.e. struct offset $00 doubles as
+; both "occupied" (nonzero) and the stat-table index - it's not a separate flag or
+; simple boolean), into struct offsets $04-$09: blink toggle, then the `$05`/`$07`/`$08`
+; "static per-type attributes", with $06/$09 landing on current/base HP. Decoded several
+; records directly from ROM - offset $09 is usually *not* equal to $06 (e.g. class 3:
+; `06 04 04 03` for offsets 5/6/7/8/9), contradicting the old assumption that $09 is
+; always "max HP equal to starting HP" - that only happened to hold for the one Crab
+; fight tested so far. Whether these raw class values get scaled further by dungeon
+; depth before use (which would reconcile the mismatch) is not confirmed.
+Call_000_1142_LoadMonsterClassStats:
     call Call_000_04b7                            ; $1142: $cd $b7 $04
     push hl                                       ; $1145: $e5
     ld a, [$c224]                                 ; $1146: $fa $24 $c2

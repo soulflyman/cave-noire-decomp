@@ -56,10 +56,16 @@ fastest way to contribute.
 
 ## Monster system ([Monster System](Monster-System))
 
-- **Monster type → stats table**: type `$01` (Crab) confirmed via real combat; type `$03`
-  (Tarantula) confirmed via its distinctive room-wide patrol movement; a stationary HP-5
-  type `$02` narrowed down to Barokusu or Bukirika but not told apart yet. ~20 StrategyWiki
-  types still unidentified, each needing a savestate with a visible, undamaged specimen.
+- **Monster type → stats table**: the per-class stat table itself is now fully decoded
+  (32 classes, see [Monster System](Monster-System) "The stat table, found") - what's
+  missing is the type-ID-to-class mapping. Type `$01` (Crab) confirmed via real combat;
+  type `$03` (Tarantula) confirmed via its distinctive room-wide patrol movement; a
+  stationary HP-5 type `$02` narrowed down to Barokusu or Bukirika but not told apart
+  yet. ~20 StrategyWiki types still unidentified, each needing a savestate with a
+  visible, undamaged specimen plus a live read of `$c224` (the class index) at spawn.
+- **What struct offset `$09` actually is**: confirmed from the stat table to generally
+  differ from current HP (`$06`), contradicting the old "max HP" assumption - needs a
+  live combat test on a class where they clearly differ, to narrow down what it affects.
 - **A `$01`-type conflict**: a second creature sharing Crab's type byte (`$01`) but with
   HP 8 instead of Crab's confirmed 5 turned up in two savestates. Needs a live combat test
   (HP-decrease tracking, as used for Crab) to figure out whether it's a real variant or a
@@ -68,13 +74,10 @@ fastest way to contribute.
   rendered via 4 OAM sprites instead of the usual 2), but their struct layout hasn't been
   traced at all - the small-monster struct doesn't obviously apply (one field that's always
   `0` for small monsters read `16` here).
-- **Struct offsets `$05`/`$07`/`$08`**: `2`/`4`/`2` for Crab, `1`/`4`/`2` for both newly
-  confirmed types so far - looks like `$07` might be constant and `$05`/`$08` vary by type,
-  but still needs more data points.
-- **Offset `$00`'s value**: confirmed to vary a lot (`6` for Crab, others seen `3`-`7`, plus
-  `18`/`19`/`22` for non-monster entries sharing the same array) - no pattern identified yet.
-- **Non-monster entries in the monster array**: confirmed to exist (static, no OAM sprite,
-  `$00` values like `19`/`22`/`18`) but their purpose is completely unknown.
+- **Whether class values `18`/`19`/`22` are really non-monsters**: previously assumed to
+  be room decorations (no OAM sprite/movement seen in those specific tests), but the stat
+  table shows completely ordinary-looking records for those classes - may just be real
+  monsters not observed long enough. Needs a longer live observation.
 
 ## Item system ([Item System](Item-System))
 

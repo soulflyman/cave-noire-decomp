@@ -1867,6 +1867,10 @@ Call_001_4a7b:
     ld hl, $c18e                                  ; $4a7b: $21 $8e $c1
     inc [hl]                                      ; $4a7e: $34
 
+; New-monster spawn: zeroes the whole 16-byte slot found by Call_001_4abe, then fills
+; offsets $00-$03 from $c224/$c227/$c225/$c226 (class index/type ID/row/col), and hands
+; off to Call_000_1142_LoadMonsterClassStats to fill in the rest ($04-$09, the per-class
+; stat block) - see that routine's comment for the stat table itself.
 Jump_001_4a7f:
     ld hl, $c222                                  ; $4a7f: $21 $22 $c2
     rst RST_08                                    ; $4a82: $cf
@@ -1898,7 +1902,7 @@ Jump_001_4a7f:
     ld a, [$c226]                                 ; $4aa4: $fa $26 $c2
     ld [hl+], a                                   ; $4aa7: $22
     push hl                                       ; $4aa8: $e5
-    call Call_000_1142                            ; $4aa9: $cd $42 $11
+    call Call_000_1142_LoadMonsterClassStats                            ; $4aa9: $cd $42 $11
     call Call_001_75bb                            ; $4aac: $cd $bb $75
     pop hl                                        ; $4aaf: $e1
     ld a, [$c239]                                 ; $4ab0: $fa $39 $c2
