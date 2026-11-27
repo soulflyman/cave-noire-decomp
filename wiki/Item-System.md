@@ -48,9 +48,59 @@ floor doesn't hand out unlimited duplicates of the same item; if the table sums 
 RollWeightedItemType` has four more call sites elsewhere in bank 1 besides the starting-
 inventory one, all feeding picked items into chest/floor-drop code. So the four items you
 start with and everything you find in that floor's chests all come out of one shared,
-depleting 32-slot pool - not independent rolls. Not yet traced: what populates/refills
-`$c190`-`$c1af` at floor generation time (presumably a per-quest-type table, still
-unlocated).
+depleting 32-slot pool - not independent rolls.
+
+### Where the pool gets (re)filled
+
+Found: two loader routines in bank 0, both copying a 32-byte template from bank 2 into
+the live pool at `$c190`-`$c1af`:
+
+- `Call_000_1240_LoadDefaultItemPool` loads one **fixed, quest-independent** template
+  (bank 2, `$6750`: only items `$02`/`$03`/`$0a`/`$0d` - Dokukeshi/Fire/Toumei/Akari -
+  weight 1 each, everything else zero). This is called immediately before
+  `Call_001_5f2c_RollStartingInventory` - so **the starting "tree blessing" items always
+  come from this one restricted pool, regardless of quest type or dungeon level.**
+- `Call_000_1248_LoadQuestLevelItemPool` loads the **real per-quest/per-level** template
+  instead. It's only called from inside `Call_001_75a8_RollWeightedItemType`'s own retry
+  path, once the shared pool has been drawn down to nothing - so it's the pool that
+  governs chest/floor-item rolls for the rest of the run, just not the very first roll.
+
+The per-quest/level template is selected through a small nested table in bank 2:
+
+```
+$6d4e: 5 words - index 0 unused ($AAAA sentinel), indices 1-4 = quest types 1-4,
+       each pointing to that quest's own per-level pointer list
+  quest 1 -> $6d58 (10 levels)
+  quest 2 -> $6d6c (10 levels)
+  quest 3 -> $6d80 (10 levels)
+  quest 4 -> $6d94 (9 levels - Fairy quest has one fewer dungeon level than the rest)
+```
+
+Each per-level pointer list holds one word per dungeon level, pointing to that level's
+32-byte weight template; the templates themselves are packed back-to-back right after the
+pointer tables (quest 1's at `$6770`, quest 2's at `$6870`, etc. - each exactly `$100`/256
+bytes apart, i.e. 8 templates × 32 bytes). Across every quest, the **deepest 2-3 levels
+all reuse the same final template** rather than getting a unique one each.
+
+Sample weight entries actually present (index = item type ID, decoded live from the ROM):
+
+```
+default pool ($6750):        $02×1 $03×1 $0a×1 $0d×1
+quest 1, level 1 ($6770):     $01×2 $02×2 $03×1 $06×1 $08×1 $10×1 $12×1
+quest 1, level 4 ($67d0):     $01×2 $02×2 $03×2 $05×1 $06×1 $08×2 $09×2 $0a×1 $0c×1 $0d×2 $10×1 $12×1
+quest 1, deepest ($6850):     $01×2 $02×2 $03×1 $04×2 $05×2 $06×1 $08×1 $09×2 $0a×2 $0c×2 $0d×2 $0e×1 $10×3 $11×1 $13×1
+```
+
+`$10`/`$11` (the confirmed gold-pile items) show up with increasing weight at deeper
+levels, as expected. **Item `$12` turned up with weight 1 in almost every quest/level
+template** - it's not yet in the confirmed item list (see "Not yet identified" below), so
+it's a good next candidate to chase down: look for it in a Call_001_75a8_
+RollWeightedItemType-fed chest at a shallow dungeon level, where it should be common.
+
+A fourth routine, `Call_000_1267_LookupQuestLevelNibbleStat`, does the exact same
+quest+level lookup but against a different table (bank 2, `$6da6`, right after the item
+templates) and returns one packed nibble instead of copying 32 bytes - purpose not
+identified yet.
 
 ## Equipment bonus tables
 

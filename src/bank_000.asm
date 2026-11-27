@@ -3517,12 +3517,33 @@ Call_000_1224:
     jp Jump_000_04aa                              ; $123d: $c3 $aa $04
 
 
-Call_000_1240:
+; Loads the fixed, quest-independent 32-byte item-weight template at (bank 2) $6750
+; into the live floor item pool $c190-$c1af (see Call_001_75a8_RollWeightedItemType in
+; bank 1). This is what's actually used for the very first roll of a dungeon run - the
+; starting-inventory "tree blessing" (Call_001_5f2c_RollStartingInventory is called
+; right after this one, see its call site in bank 1) always draws slots 2-4 from this
+; one restricted pool (items $02/$03/$0a/$0d - Dokukeshi/Fire/Toumei/Akari - weight 1
+; each), regardless of quest type or level.
+Call_000_1240_LoadDefaultItemPool:
     call Call_000_04b7                            ; $1240: $cd $b7 $04
     ld hl, $6750                                  ; $1243: $21 $50 $67
     jr jr_000_125b                                ; $1246: $18 $13
 
-Call_000_1248:
+; Loads the quest+level-specific 32-byte item-weight template (bank 2) into the live
+; floor item pool $c190-$c1af. This is the "pool exhausted, refill" path called from
+; inside Call_001_75a8_RollWeightedItemType once the shared pool has been drawn down to
+; nothing - so later chest/floor-item rolls during a run use the real per-floor
+; distribution, while only the initial tree-blessing roll (see
+; Call_000_1240_LoadDefaultItemPool above) uses the generic default.
+;
+; Table layout (all addresses in bank 2): a 5-word quest-select table at $6d4e (index 0
+; is an unused $AAAA sentinel; indices 1-4 = quest types 1-4), each entry pointing to
+; that quest's own run of per-level pointers (10 entries for quests 1-3, 9 for quest 4 -
+; quest 4/Fairy has one fewer dungeon level than the others), each in turn pointing to
+; one of the 32-byte weight templates. The templates themselves are packed back-to-back
+; right after the pointer tables, and the deepest 2-3 levels of every quest reuse the
+; same final template rather than getting a unique one.
+Call_000_1248_LoadQuestLevelItemPool:
     call Call_000_04b7                            ; $1248: $cd $b7 $04
     ld a, [$c101]                                 ; $124b: $fa $01 $c1
     ld hl, $6d4e                                  ; $124e: $21 $4e $6d
@@ -3538,7 +3559,12 @@ jr_000_125b:
     jp Jump_000_04aa                              ; $1264: $c3 $aa $04
 
 
-Call_000_1267:
+; Same quest+level nested-table lookup as Call_000_1248_LoadQuestLevelItemPool, but
+; against a different table at $6da6 (bank 2, right after the item-pool template data)
+; and returning a single packed nibble instead of copying 32 bytes - two stats share one
+; byte, selected by bit 0 of the per-level pointer's low byte. Purpose of this
+; particular per-quest/level stat not identified yet.
+Call_000_1267_LookupQuestLevelNibbleStat:
     call Call_000_04b7                            ; $1267: $cd $b7 $04
     ld a, [$c101]                                 ; $126a: $fa $01 $c1
     ld hl, $6da6                                  ; $126d: $21 $a6 $6d

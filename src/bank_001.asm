@@ -5402,7 +5402,7 @@ jr_001_5e76:
     call Call_000_38c5                            ; $5e92: $cd $c5 $38
     call Call_000_1b9f                            ; $5e95: $cd $9f $1b
     call Call_001_5eaa                            ; $5e98: $cd $aa $5e
-    call Call_000_1240                            ; $5e9b: $cd $40 $12
+    call Call_000_1240_LoadDefaultItemPool                            ; $5e9b: $cd $40 $12
     call Call_001_5f2c_RollStartingInventory                            ; $5e9e: $cd $2c $5f
     call Call_001_5ebf                            ; $5ea1: $cd $bf $5e
     ld a, $40                                     ; $5ea4: $3e $40
@@ -9377,7 +9377,7 @@ Call_001_747b:
     ld a, [$c104]                                 ; $7492: $fa $04 $c1
     call Call_000_03a4                            ; $7495: $cd $a4 $03
     ld b, a                                       ; $7498: $47
-    call Call_000_1267                            ; $7499: $cd $67 $12
+    call Call_000_1267_LookupQuestLevelNibbleStat                            ; $7499: $cd $67 $12
     and $0f                                       ; $749c: $e6 $0f
     ret z                                         ; $749e: $c8
 
@@ -9594,7 +9594,8 @@ jr_001_75a1:
 ; "tree blessing" inventory (Call_001_5f2c_RollStartingInventory) and, from several
 ; other call sites in this bank, to pick items placed in dungeon chests/floor piles -
 ; one shared, depleting pool per floor. If the table sums to zero (exhausted) or
-; overflows a byte, advances the RNG (Call_000_1248) and retries from scratch.
+; overflows a byte, reloads the real per-quest/level pool
+; (Call_000_1248_LoadQuestLevelItemPool) and retries from scratch.
 Call_001_75a8_RollWeightedItemType:
 jr_001_75a8:
     ld c, $20                                     ; $75a8: $0e $20
@@ -9609,7 +9610,7 @@ jr_001_75a8:
 
 
 jr_001_75b6:
-    call Call_000_1248                            ; $75b6: $cd $48 $12
+    call Call_000_1248_LoadQuestLevelItemPool                            ; $75b6: $cd $48 $12
     jr jr_001_75a8                                ; $75b9: $18 $ed
 
 Call_001_75bb:

@@ -1393,3 +1393,41 @@ und alles, was man später in diesem Floor in Kisten findet, kommen also aus **d
 sich erschöpfenden 32-Slot-Pool** — keine unabhängigen Würfe. Noch offen: wo/wie dieser
 Pool zu Floor-Beginn befüllt wird (vermutlich eine Quest-Typ-abhängige Tabelle, noch nicht
 lokalisiert). Rebuild bleibt bit-identisch.
+
+## Befüllung des Item-Pools gefunden
+
+Zwei Lade-Routinen in Bank 0, beide kopieren eine 32-Byte-Vorlage aus Bank 2 in den
+lebenden Pool `$c190`-`$c1af`:
+
+- `Call_000_1240_LoadDefaultItemPool` lädt eine **feste, quest-unabhängige** Vorlage
+  (Bank 2, `$6750`: nur `$02`/`$03`/`$0a`/`$0d` mit Gewicht 1, der Rest null). Wird direkt
+  vor `Call_001_5f2c_RollStartingInventory` aufgerufen — die vier Start-Items beim
+  "Gebet vor dem Baum" kommen also **immer** aus diesem einen schmalen Pool, egal welche
+  Quest/welches Level.
+- `Call_000_1248_LoadQuestLevelItemPool` lädt die **echte quest-/level-spezifische**
+  Vorlage — aber nur als Nachfüll-Pfad innerhalb von `Call_001_75a8_
+  RollWeightedItemType`, wenn der Pool leergezogen ist. Das heißt: alle späteren
+  Kisten-/Boden-Item-Würfe im Lauf nutzen die echte Verteilung, nur der allererste Wurf
+  (Start-Inventar) nicht.
+
+Struktur in Bank 2: eine 5-Wort-Tabelle bei `$6d4e` (Index 0 unbenutzt/Sentinel, Index 1-4
+= Quest-Typen), die auf je eine Pro-Level-Zeiger-Liste zeigt (Quest 1-3: 10 Level, Quest 4
+"Fairy": nur 9 — ein Level weniger als die anderen). Die eigentlichen 32-Byte-Vorlagen
+liegen direkt hintereinander (je Quest exakt 8×32=256 Byte), die tiefsten 2-3 Level jeder
+Quest teilen sich dieselbe letzte Vorlage statt eine eigene zu bekommen.
+
+Stichproben (Index = Item-Typ-ID):
+```
+Default-Pool ($6750):     $02×1 $03×1 $0a×1 $0d×1
+Quest 1, Level 1:          ... $10×1 $12×1
+Quest 1, tiefstes Level:   ... $10×3 $11×1 $13×1
+```
+`$10`/`$11` (bestätigte Goldhaufen) kommen mit steigendem Gewicht in tieferen Leveln vor —
+plausibel. **Item `$12` taucht mit Gewicht 1 in fast jeder Quest/Level-Vorlage auf** und
+ist noch nicht identifiziert — vielversprechender nächster Kandidat (siehe
+Open-Questions.md).
+
+Eine vierte Routine, `Call_000_1267_LookupQuestLevelNibbleStat`, macht denselben
+Quest+Level-Lookup gegen eine andere Tabelle (Bank 2, `$6da6`, direkt hinter den
+Item-Vorlagen) und liefert ein gepacktes Nibble statt 32 Byte zu kopieren — Zweck noch
+nicht geklärt. Rebuild bleibt bit-identisch.
