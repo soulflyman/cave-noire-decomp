@@ -5403,7 +5403,7 @@ jr_001_5e76:
     call Call_000_1b9f                            ; $5e95: $cd $9f $1b
     call Call_001_5eaa                            ; $5e98: $cd $aa $5e
     call Call_000_1240                            ; $5e9b: $cd $40 $12
-    call Call_001_5f2c                            ; $5e9e: $cd $2c $5f
+    call Call_001_5f2c_RollStartingInventory                            ; $5e9e: $cd $2c $5f
     call Call_001_5ebf                            ; $5ea1: $cd $bf $5e
     ld a, $40                                     ; $5ea4: $3e $40
     ld [$c14e], a                                 ; $5ea6: $ea $4e $c1
@@ -5515,12 +5515,23 @@ jr_001_5f20:
 
     jr jr_001_5f20                                ; $5f2a: $18 $f4
 
-Call_001_5f2c:
+; Rolls the "pray before the tree" starting inventory shown right before entering a
+; dungeon (confirmed live via save_010.state, matching an external description of the
+; same screen - a 4-slot preview that reveals the items one by one). wInventory
+; ($c140-$c143):
+;   $c140 (slot 1): always item $01 (Kaifuku/heal potion) - not random
+;   $c141 (slot 2): normally rolled like slots 3/4, EXCEPT on quest 4 (Fairy), levels 1-2
+;                   (zero-indexed $c102 < 3), where it's hardcoded to item $14 instead
+;   $c142 (slot 3), $c143 (slot 4): rolled via Call_001_75a8_RollWeightedItemType
+; That roll function draws from the same 32-entry per-floor weighted item pool
+; ($c190-$c1af) that in-dungeon chest/floor items are drawn from elsewhere (see its
+; own comment) - the starting items and the dungeon's loot share one limited pool.
+Call_001_5f2c_RollStartingInventory:
     ld a, $01                                     ; $5f2c: $3e $01
     ld [$c140], a                                 ; $5f2e: $ea $40 $c1
-    call Call_001_75a8                            ; $5f31: $cd $a8 $75
+    call Call_001_75a8_RollWeightedItemType                            ; $5f31: $cd $a8 $75
     ld [$c142], a                                 ; $5f34: $ea $42 $c1
-    call Call_001_75a8                            ; $5f37: $cd $a8 $75
+    call Call_001_75a8_RollWeightedItemType                            ; $5f37: $cd $a8 $75
     ld [$c143], a                                 ; $5f3a: $ea $43 $c1
     ld a, [$c101]                                 ; $5f3d: $fa $01 $c1
     cp $04                                        ; $5f40: $fe $04
@@ -5536,7 +5547,7 @@ Call_001_5f2c:
 
 
 jr_001_5f51:
-    call Call_001_75a8                            ; $5f51: $cd $a8 $75
+    call Call_001_75a8_RollWeightedItemType                            ; $5f51: $cd $a8 $75
     ld [$c141], a                                 ; $5f54: $ea $41 $c1
     ret                                           ; $5f57: $c9
 
@@ -9253,9 +9264,19 @@ Jump_001_7418:
     jp Jump_000_0647                              ; $741c: $c3 $47 $06
 
 
-Call_001_741f:
+; Weighted pick: c=table length (always $20/32 from the one caller), hl=table base
+; (always $c190). Sums the whole table first (Call_001_7436_SumWeightTable); bails
+; with carry set if the sum overflows a byte, or zero set if the table is all zeroes
+; (pool exhausted) - the caller treats both as "reroll". Otherwise draws one RNG byte
+; (Call_000_0456, the game's one 16-bit LCG) and walks the table subtracting each
+; entry's weight until it goes negative - the index where that happens is the chosen
+; item type (returned in b/a), classic weighted-random-pick-by-cumulative-weight. The
+; chosen entry's weight is then decremented, so the same item becomes less likely (and
+; eventually impossible) to reroll again until the pool is replenished - this is why a
+; floor's chests/starting items don't hand out unlimited duplicates of the same item.
+Call_001_741f_PickFromWeightTable:
     push hl                                       ; $741f: $e5
-    call Call_001_7436                            ; $7420: $cd $36 $74
+    call Call_001_7436_SumWeightTable                            ; $7420: $cd $36 $74
     pop hl                                        ; $7423: $e1
     ret c                                         ; $7424: $d8
 
@@ -9279,7 +9300,7 @@ jr_001_7433:
     ret                                           ; $7435: $c9
 
 
-Call_001_7436:
+Call_001_7436_SumWeightTable:
     ld b, c                                       ; $7436: $41
     ld a, [hl+]                                   ; $7437: $2a
 
@@ -9443,7 +9464,7 @@ Call_001_74ed:
     rra                                           ; $7509: $1f
     jr nc, jr_001_7522                            ; $750a: $30 $16
 
-    call Call_001_75a8                            ; $750c: $cd $a8 $75
+    call Call_001_75a8_RollWeightedItemType                            ; $750c: $cd $a8 $75
     ld [$c18f], a                                 ; $750f: $ea $8f $c1
     pop de                                        ; $7512: $d1
     jp Jump_001_4f1c                              ; $7513: $c3 $1c $4f
@@ -9479,7 +9500,7 @@ jr_001_7522:
     rra                                           ; $7533: $1f
     jr nc, jr_001_7540                            ; $7534: $30 $0a
 
-    call Call_001_75a8                            ; $7536: $cd $a8 $75
+    call Call_001_75a8_RollWeightedItemType                            ; $7536: $cd $a8 $75
     ld [$c18f], a                                 ; $7539: $ea $8f $c1
     pop de                                        ; $753c: $d1
     jp Jump_001_4f1c                              ; $753d: $c3 $1c $4f
@@ -9506,7 +9527,7 @@ jr_001_7540:
     rra                                           ; $7558: $1f
     jr nc, jr_001_7522                            ; $7559: $30 $c7
 
-    call Call_001_75a8                            ; $755b: $cd $a8 $75
+    call Call_001_75a8_RollWeightedItemType                            ; $755b: $cd $a8 $75
     ld [$c18f], a                                 ; $755e: $ea $8f $c1
     pop de                                        ; $7561: $d1
     jp Jump_001_4f1c                              ; $7562: $c3 $1c $4f
@@ -9537,7 +9558,7 @@ jr_001_7565:
     rra                                           ; $7584: $1f
     jp nc, Jump_001_7522                          ; $7585: $d2 $22 $75
 
-    call Call_001_75a8                            ; $7588: $cd $a8 $75
+    call Call_001_75a8_RollWeightedItemType                            ; $7588: $cd $a8 $75
     ld [$c18f], a                                 ; $758b: $ea $8f $c1
     pop de                                        ; $758e: $d1
     jp Jump_001_4f1c                              ; $758f: $c3 $1c $4f
@@ -9568,11 +9589,17 @@ jr_001_75a1:
     ret                                           ; $75a7: $c9
 
 
-Call_001_75a8:
+; Rolls one item type from the 32-entry weighted pool at $c190-$c1af (see
+; Call_001_741f_PickFromWeightTable for the pick itself). Used both for the starting
+; "tree blessing" inventory (Call_001_5f2c_RollStartingInventory) and, from several
+; other call sites in this bank, to pick items placed in dungeon chests/floor piles -
+; one shared, depleting pool per floor. If the table sums to zero (exhausted) or
+; overflows a byte, advances the RNG (Call_000_1248) and retries from scratch.
+Call_001_75a8_RollWeightedItemType:
 jr_001_75a8:
     ld c, $20                                     ; $75a8: $0e $20
     ld hl, $c190                                  ; $75aa: $21 $90 $c1
-    call Call_001_741f                            ; $75ad: $cd $1f $74
+    call Call_001_741f_PickFromWeightTable                            ; $75ad: $cd $1f $74
     jr z, jr_001_75b6                             ; $75b0: $28 $04
 
     jr c, jr_001_75b6                             ; $75b2: $38 $02

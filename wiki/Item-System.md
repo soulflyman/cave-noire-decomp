@@ -18,6 +18,40 @@ changes):
 - `Call_001_4eae_FindAnyShield` — searches item types `$1c`-`$1f`
 - `Call_001_4ebc_ConsumeInventoryItem` — removes one item of a given type from inventory
 
+## Starting inventory ("pray before the tree") and the shared floor item pool
+
+Confirmed live (`save_010.state`): right before entering a dungeon, a screen shows a tree,
+the player, and four boxes that reveal items one at a time. An external description of
+the same screen calls it praying before the tree/forest god, which grants four starting
+items alongside the sword - matches the save exactly (inventory already held `$01`/`$0a`/
+`$03`/`$02` - heal potion, Toumei invisibility, Fire, Dokukeshi).
+
+Traced to `Call_001_5f2c_RollStartingInventory` (bank 1, `$5f2c`), which fills
+`wInventory` slots 1-4 (`$c140`-`$c143`):
+
+- Slot 1 (`$c140`) is **always item `$01`** (heal potion) - not random.
+- Slots 3/4 (`$c142`/`$c143`) are rolled via `Call_001_75a8_RollWeightedItemType`.
+- Slot 2 (`$c141`) is rolled the same way, **except** on quest type `4` (Fairy), dungeon
+  level `1`-`2` (`$c102` < 3), where it's hardcoded to item `$14` instead - a guaranteed
+  item for early Fairy-quest floors.
+
+`Call_001_75a8_RollWeightedItemType` draws from a **32-entry weighted item pool at
+`$c190`-`$c1af`**, one byte per item type ID = that type's remaining weight/count for the
+current floor. The pick (`Call_001_741f_PickFromWeightTable`) sums the whole table, rolls
+one byte from the game's RNG (`Call_000_0456`), and walks the table subtracting each
+entry's weight until it goes negative - the stopping index *is* the item type ID, classic
+weighted-random-by-cumulative-weight. The chosen entry's weight is then decremented, so a
+floor doesn't hand out unlimited duplicates of the same item; if the table sums to zero
+(exhausted) or overflows a byte, the RNG is advanced and the whole roll retries.
+
+**This is the same pool dungeon chests/floor item piles draw from** - `Call_001_75a8_
+RollWeightedItemType` has four more call sites elsewhere in bank 1 besides the starting-
+inventory one, all feeding picked items into chest/floor-drop code. So the four items you
+start with and everything you find in that floor's chests all come out of one shared,
+depleting 32-slot pool - not independent rolls. Not yet traced: what populates/refills
+`$c190`-`$c1af` at floor generation time (presumably a per-quest-type table, still
+unlocated).
+
 ## Equipment bonus tables
 
 Found and documented as explicit data (bank 1, `$510a`/`$510e` — safe to convert since no

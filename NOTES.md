@@ -1362,3 +1362,34 @@ Bewegung/OAM/Screenshots gegengeprüft:
 Außerdem erneut bestätigt: einige Array-Slots sind **keine Monster**, sondern andere
 Raum-Objekte, die sich dasselbe 16-Byte-Array teilen (Offset `$00` z.B. `19` oder `22`,
 kein zugehöriges OAM-Sprite, bewegen sich nie). Noch nicht identifiziert, wofür sie stehen.
+
+## Start-Inventar-Screen ("Gebet vor dem Baum") im Code nachvollzogen (`save_010.state`)
+
+User-Beschreibung: ein Screen vor dem Dungeon-Betreten zeigt einen Baum, den Spieler und
+vier Kästchen, die nacheinander Gegenstände aufdecken. Eine externe Spielbeschreibung
+nennt das "vor dem Baum/Waldgott beten", wofür man vier Start-Items zusätzlich zum Schwert
+bekommt — exakt das, was im Save bereits im Inventar lag (`$01`/`$0a`/`$03`/`$02` =
+Heiltrank, Toumei-Unsichtbarkeit, Feuer, Gegengift).
+
+Im Code gefunden: `Call_001_5f2c_RollStartingInventory` (Bank 1, `$5f2c`) füllt
+`wInventory`-Slots 1-4:
+- Slot 1 ist **immer** Item `$01` (Heiltrank) — fest verdrahtet, nicht zufällig.
+- Slot 2 wird normal zufällig gewürfelt, **außer** bei Quest 4 (Fairy), Level 1-2 — dort
+  fest auf Item `$14` gesetzt (ein garantiertes Item für frühe Fairy-Quest-Floors).
+- Slot 3 und 4 immer zufällig.
+
+Die eigentliche Würfel-Routine (`Call_001_75a8_RollWeightedItemType`) zieht aus einem
+**32 Byte großen gewichteten Item-Pool bei `$c190`-`$c1af`** (ein Byte pro Item-Typ = noch
+verbleibendes Gewicht/Anzahl für diesen Floor). Der Pick-Algorithmus (`Call_001_741f_
+PickFromWeightTable`) summiert die Tabelle, zieht einen RNG-Wert, läuft die Tabelle entlang
+und zieht jeweils das Gewicht ab, bis es unter null fällt — der Index, an dem das passiert,
+ist der gewürfelte Item-Typ (klassisches gewichtetes Ziehen über kumulative Gewichte). Das
+gezogene Gewicht wird danach dekrementiert, damit ein Floor nicht unbegrenzt Duplikate
+desselben Items ausspuckt.
+
+**Wichtigster Fund:** Dieselbe Würfel-Routine wird noch an vier weiteren Stellen in Bank 1
+aufgerufen — für Items in Kisten/Boden-Fundstücken im Dungeon selbst. Die vier Start-Items
+und alles, was man später in diesem Floor in Kisten findet, kommen also aus **demselben,
+sich erschöpfenden 32-Slot-Pool** — keine unabhängigen Würfe. Noch offen: wo/wie dieser
+Pool zu Floor-Beginn befüllt wird (vermutlich eine Quest-Typ-abhängige Tabelle, noch nicht
+lokalisiert). Rebuild bleibt bit-identisch.
