@@ -1197,3 +1197,37 @@ In-Raum-Position nach `$c50b`/`$c50c` gestaged, und erst eine separate Funktion
 Live getestet: `$c427`/`$c428` = `(1, 2)`, Start-Raum-Index `1` → Ziel-Raum-Index `2`
 gewählt, landete im sichtbar anderen Raum. Beide Routinen benannt/kommentiert, Rebuild
 bleibt bit-identisch (MD5 `10d92861e262069ce31559e12b927aa0`).
+
+## Dungeon-Ausgang ("Door") GEFUNDEN (`save_005.state`, HP 1/10 — Risiko akzeptiert)
+
+User-Save direkt neben dem Levelausgang, Quest bereits 3/3 Monster erfüllt. Bei HP 1/10
+extrem vorsichtig getestet (vorab Backup-Save, nach jedem einzelnen Tastendruck HP
+geprüft) — HP blieb während des gesamten Tests stabil, keine Gefahr eingetreten.
+
+- Direktes Reinlaufen in die Ausgangs-Kachel = Bump (blockiert, wie eine normale Wand,
+  `$c241` roh `$80`).
+- Adjazent stehen + **A** drücken: `$c100` (Haupt-Spielzustand) springt auf `12` (Handler
+  bei `$0bd4` in `bank_000.asm`, Teil der großen `$c100`-Dispatch-Tabelle — eine weitere,
+  bisher nicht kartierte Ebene über den schon bekannten `$c125`/`$c126`-Automaten).
+- Danach läuft automatisch ab: Paletten-Fade-Übergang → scrollende "Flur-Rausrennen"-
+  Animation → Ergebnis-Screen:
+  > コナミ タロウ は、3 ひきモンスターをたおしました。おめでとう!!
+  > ("Konami Tarou hat 3 Monster besiegt. Herzlichen Glückwunsch!!")
+  gefolgt von einer sich wiederholenden Liste einzelner Kills mit Icon, laufendem Index,
+  Name und Gewicht/Größe, z.B. `1 ミノタウルス 180kg 2.7m` (Minotaurus) und
+  `2 タランチュラ 94kg 2.4m` (Tarantula). Interessant: dieselbe Monsterart zeigt zwischen
+  zwei Kills leicht andere Gewicht/Größe-Werte (180kg/2.7m vs. 184kg/2.9m für zwei
+  verschiedene Minotaurus-Kills) — vermutlich kleine randomisierte "Flavor"-Stats pro
+  Monster-Instanz, unabhängig von den Kampfwerten. Das ist ein vielversprechender Ansatz,
+  um Monstertyp-IDs künftig über den Namen zu identifizieren (noch nicht mit den
+  Struct-Daten abgeglichen).
+
+**Offen:** Der Ergebnis-Screen loopt unbegrenzt (3000 Ticks ≈ 50 Sekunden getestet, dazu A
+kurz/lang gehalten, B, Start, Select — nichts hat zurück ins Guild-Menü geführt). Entweder
+fehlt der richtige Input/Zeitpunkt, oder es gibt einen sehr engen Eingabe-Zeitpunkt, den die
+20-Tick-Sampling-Lücken übersprungen haben. Auch die genaue Auslöse-Bedingung der
+Ausgangs-Kachel selbst (Tile-Klasse vs. feste Koordinatenprüfung) wurde nicht abschließend
+geklärt — `$c241` zeigte nur den generischen Wand-Wert `$80`, spricht eher für eine feste
+Koordinatenprüfung als ein eigenes Tile-Klassen-System wie bei Treppe/Kiste/Warp.
+
+Reiner Dokumentations-Fund (keine Code-Änderung/kein Rebuild nötig).

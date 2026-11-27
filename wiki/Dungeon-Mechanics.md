@@ -160,10 +160,42 @@ monster that was in the newly-lit area was **still** rendered only as the eye-pa
 afterwards - so the "reveal nearby tiles" system (room geometry) and the "reveal a monster's
 real sprite" system are independent; Akari only affects the former.
 
+## Dungeon exit ("Door")
+
+Confirmed live on a savestate standing next to the exit tile (visually a distinct icon,
+quest already at 3/3 monsters killed): walking adjacent to it and pressing **A** sets the
+main game-state dispatcher (`$c100`) to `12`, entered via the handler at bank 0 `$0bd4`
+(not yet named - reached through the top-level `$c100` state machine, a separate, larger
+dispatch table from the `$c125`/`$c126` ones already mapped for movement/combat/chests).
+This plays a palette-fade transition, then a scrolling "running down a corridor" animation,
+and finally a results screen:
+
+> コナミ タロウ は、3 ひきモンスターをたおしました。おめでとう!!
+> ("Konami Tarou defeated 3 monsters. Congratulations!!")
+
+followed by a looping list of the individual kills, each showing a monster icon, a running
+kill index, its name, and a weight/height stat line, e.g. `1 ミノタウルス 180kg 2.7m`
+(Minotaurus) and `2 タランチュラ 94kg 2.4m` (Tarantula) - the same named monster can show
+slightly different weight/height between individual kills (`180kg/2.7m` vs `184kg/2.9m` for
+two different Minotaurus kills), suggesting each monster instance gets small randomized
+"flavor" stats independent of its combat stats. This is a promising lead for identifying
+monster type IDs by name in the future, but wasn't cross-referenced against the struct data
+in this session.
+
+The screen loops this list indefinitely - across a 3000-tick (~50 second) idle run and
+several button combinations (A, B, Start, Select, held A), nothing dismissed it back to the
+guild menu, so the exact "continue" input (or whether it's timed and our sampling just
+missed a narrow window) is still unconfirmed.
+
+The exact tile class/trigger condition for *approaching* the exit (as opposed to the `$c100`
+state transition once A is pressed) wasn't isolated - the resolved tile class read as a
+plain `$80`-with-bit-7-set value indistinguishable from an ordinary wall in this test,
+suggesting the exit may be a hardcoded coordinate check rather than a tile-class entry like
+stairs/chests/warps.
+
 ## Not located at all
 
 - **Lava** — "lose all HP if you fall in" per the wiki. No tile class identified yet.
-- **Door** (dungeon exit) — no tile class identified yet.
 - **Fairy Cage** — unlockable with a key item, not investigated.
 
 See [Open Questions](Open-Questions) for the full savestate wishlist.

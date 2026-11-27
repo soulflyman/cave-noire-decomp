@@ -25,8 +25,13 @@ fastest way to contribute.
   [Dungeon Mechanics](Dungeon-Mechanics).
 - **Lava**: no tile class identified at all. Needs a savestate in a room with lava tiles
   (per the wiki, likely near Salamander spawns).
-- **Door** (dungeon exit): no tile class identified. Needs a savestate right after
-  completing the quest objective, standing at the exit.
+- ~~**Door** (dungeon exit)~~ — confirmed: approaching it and pressing A sets `$c100=12`,
+  triggering a fade + corridor-run animation and a results screen with a looping
+  per-monster kill list (name/weight/height). Still open: the exact input to dismiss the
+  results screen (nothing tried advanced past it), and the exact trigger condition for
+  the exit tile itself (looked like a generic wall tile class, so likely a hardcoded
+  coordinate check rather than a tile-class entry). See
+  [Dungeon Mechanics](Dungeon-Mechanics).
 - **Fairy Cage**: not investigated at all. Needs a savestate in a Fairy quest with a visible
   cage and the key item in inventory.
 - **Ganseki item effect** (fill hole/rock barrier): needs a savestate with the Ganseki item
