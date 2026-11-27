@@ -28,6 +28,11 @@ fastest way to contribute.
   in inventory, standing next to a hole.
 - **Oriru item effect** (place stairs on adjacent tile): needs a savestate with the Oriru
   item in inventory.
+- **The "real" two-phase treasure chest** (open with A, item drops visibly on the tile, walk
+  onto it and press A again to actually collect it): confirmed this is **not** what the
+  `$d500` tile-overlay/`jr_000_36e0` mechanism does (that one is a single A-press, and for
+  item type `$10` doesn't even go to the inventory — see [Dungeon Mechanics](Dungeon-Mechanics)).
+  Needs a savestate standing right in front of a still-closed, visually distinct chest.
 
 ## Monster system ([Monster System](Monster-System))
 

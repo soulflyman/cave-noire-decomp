@@ -16,20 +16,50 @@ bank 0) sets the main state machine (`$c126`) based on it:
 
 ## Chest/item pickup flow
 
-Confirmed via live play (Beaten Dying Moon emulator): picking up an item from a chest is a
-three-step interaction, structurally identical to the attack-targeting flow in
-[Combat System](Combat-System):
+Live play (Beaten Dying Moon emulator) described a three-step interaction for chests (walk
+adjacent, press direction again to select - shown as blinking corner markers -, A to open,
+then walk onto the dropped item and press A again to collect it), structurally similar to
+the attack-targeting flow in [Combat System](Combat-System). Tracing one specific instance
+in the disassembly, confirmed with PyBoy (see [Building the ROM](Building-the-ROM) for the
+method, [Open Questions](Open-Questions) for what's still unresolved), told a more nuanced
+story:
 
-1. Walk up adjacent to the chest tile.
-2. Press the direction toward it again to select it (same blinking-corner selection as
-   targeting a monster).
-3. Press **A** to open it. The contained item drops onto the chest's tile (it does not go
-   straight into the inventory).
-4. Walk onto that tile, then press **A** again to actually pick the dropped item up into the
-   inventory.
+- The `$d500`-array/`jr_000_36e0` mechanism (tile class `$0a`, found via the same
+  `Call_000_2ef1` tile resolver used everywhere else) does **not** block movement - you can
+  walk right onto this kind of tile.
+- Pressing **A** while standing on it calls `jr_000_36e0`. For "normal" item type IDs, this
+  adds the item straight to the inventory in one step (compacts the inventory, finds a free
+  slot, copies the item byte, clears the tile) - no separate ground-drop phase.
+- For item type IDs `$10`/`$11` specifically, it instead branches to `jr_001_50df`, which
+  sets `$c515` (the RNG-derived event timer used elsewhere for item effects) and does **not**
+  add anything to the inventory - this looks like an immediate trap/effect trigger, not a
+  collectible.
 
-So a chest requires two separate A presses (open, then pick up) with a move in between, not
-a single walk-and-grab.
+So the `$d500` overlay mechanism, at least for the one tile type tested (type `$10` in a
+Gold quest, level 1, reached via a reproducible savestate - see below), is a single-A-press
+interaction, not the two-phase open-then-collect flow described from live play. The real
+two-phase chest (visually distinct, closed sprite; opening drops an item that needs a
+*separate* walk+A to collect) has not been located yet - it may be a different object
+entirely (e.g. an actual sprite rather than this background-tile overlay), or only certain
+item types exhibit it. Needs a savestate standing right in front of a still-closed,
+visually distinct chest to test properly.
+
+### No real "dungeon seed" exists, but the RNG state is directly reproducible
+
+While investigating this, it turned out the game has no dedicated "dungeon generation seed"
+value a player could note down. All randomness flows through one 16-bit LCG state
+(`$c011`/`$c012`, see [Combat System](Combat-System) for the formula) that is **never**
+explicitly seeded with real entropy anywhere in the ROM (no boot-time write found in any
+bank) - its drift comes entirely from how many times it's been called by the time you enter
+a dungeon, which in practice means "how the player navigated the menus."
+
+The useful consequence: since it's just two bytes, poking `$c011`/`$c012` directly in PyBoy
+before entering a dungeon reproduces a run deterministically, without needing a real
+player-captured savestate. Tested by forcing a Gold quest (`$c101=2`) on top of an existing
+item-loadout savestate and sweeping many seed values: every seed produced an item at the
+same `$d500` offset, with only the spawn position varying - suggesting level 1 has a single
+fixed room template for this quest type (item placement fixed, only spawn point randomized),
+though this hasn't been checked across other quest/level combinations.
 
 ## Warp
 

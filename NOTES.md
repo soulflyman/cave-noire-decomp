@@ -1008,3 +1008,52 @@ Alle Label-Ergänzungen (`Jump_000_3c32_CommitTargetSelection`, `Jump_000_3c38_C
 `Jump_001_5a59_ConfirmAttackOrPickup`) sind reine Label/Kommentar-Ergänzungen an bereits
 korrekt disassemblierten Code (keine `db`-Konvertierung nötig). Rebuild bleibt bit-identisch
 (MD5 `10d92861e262069ce31559e12b927aa0`).
+
+## Kein echter "Dungeon-Seed" — und ein einstufiger Boden-Item/Fallen-Fund (Kisten-Recherche)
+
+User-Frage: ob es einen Dungeon-Generierungs-Seed gibt, den man sich merken/mitteilen könnte,
+da BDM (Web-Version) keine eigenen Savestates erlaubt.
+
+**Befund zum Zufall:** Der komplette Pseudo-Zufall im Spiel läuft über einen einzigen
+16-Bit-LCG-Zustand `$c011`/`$c012` (`Call_000_0456`, bereits aus der Combat-RNG-Recherche
+bekannt: `state = state×9 + $0929 mod $11d7`). Eine ROM-weite Suche nach Schreibzugriffen auf
+`$c011`/`$c012` findet **nur** die Lese/Schreib-Stellen innerhalb von `Call_000_0456` selbst —
+nirgendwo sonst im Code (keine Bank) wird dieser Zustand mit echter Entropie (Timer, `rDIV`,
+Boot-Zähler) initialisiert. Es gibt also keinen separaten "Dungeon-Seed"-Wert, den man sich
+notieren könnte — die gesamte Variation kommt einzig aus der Anzahl der LCG-Aufrufe, die bis
+zum Dungeon-Eintritt akkumuliert wurden (im Wesentlichen: wie lange/wie der Spieler durch die
+Menüs navigiert).
+
+**Praktische Konsequenz (positiv!):** Weil der Zustand nur in diesen zwei Bytes steckt, kann
+man ihn in PyBoy direkt gezielt pofzen, um einen Dungeon reproduzierbar zu erzeugen — ganz
+ohne echten Spieler-Savestate. Getestet mit `items_full.state` (Quest 1/Level 1, aber dort per
+Memory-Poke `$c101=2` auf Quest 2/Gold umgeschaltet) + verschiedenen `$c011`/`$c012`-Werten vor
+dem A-Druck am Item-Loadout-Screen: Bei **jedem** getesteten Seed landet exakt ein Item
+(Typ `$10`) am selben `$d500`-Offset (0) — nur die Spawn-Position variiert. Das deutet darauf
+hin, dass für Quest2/Level1 nur ein einziges Raum-Template existiert (oder die Itemplatzierung
+für dieses Level fix ist) und die "Zufälligkeit" sich hier vor allem auf die Spawn-Position
+beschränkt — keine abschließende Aussage für andere Quest/Level-Kombinationen.
+
+**Mit dieser reproduzierbaren Savestate die Kisten-Mechanik dynamisch getestet** (BFS über
+Bewegungssequenzen bis `$c241` den dynamischen Tile-Wert zeigt, dann PyBoy-Hooks beim
+A-Druck):
+
+- Die Kiste **blockiert die Bewegung nicht** — man kann einfach drauflaufen (widerlegt meine
+  vorherige statische Vermutung, dass Bit 7 von `$c241` jede dynamische Kachel blockiert; das
+  gilt offenbar nur für die "Boden-Item sichtbar"-Klasse `$89`, nicht für die "Kiste mit Item
+  drin"-Klasse `$0a`).
+- A-Druck **während man auf der Kiste steht** löst `jr_000_36e0` → (da Itemtyp `$10` einer der
+  Sonderfälle ist) `jr_000_371a` → `item_timer_50df` aus.
+- Das Item landet dabei **nicht im Inventar** — stattdessen wird nur `$c515` (Zufalls-Timer)
+  gesetzt. Dieser spezielle Itemtyp (`$10`) ist also vermutlich ein Fallen-/Sofort-Effekt-
+  Objekt, kein normales Sammelitem.
+
+**Schlussfolgerung:** Das hier bestätigte Verhalten ist ein **einstufiger** Pickup/Fallen-
+Mechanismus (ein A-Druck, fertig) — nicht die vom User beschriebene Zwei-Phasen-Kiste
+(öffnen → Item liegt sichtbar auf dem Feld → separat aufheben). Die echte "klassische" Kiste
+mit sichtbarem Öffnen-Dann-Aufheben-Ablauf wurde noch nicht gefunden; möglich, dass es sich um
+ein anderes Objekt handelt (z.B. ein echtes Sprite statt des `$d500`-Tile-Overlays), oder dass
+nur bestimmte Itemtypen (nicht `$10`/`$11`) dieses Verhalten zeigen — die Haupt-Branch von
+`jr_000_36e0` (für "normale" Itemtypen) wurde bereits früher gelesen und füllt das Inventar
+ebenfalls direkt in einem Schritt, ohne Zwischenstufe. Noch offen, wartet auf einen echten
+Savestate kurz vor einer sichtbaren, noch ungeöffneten Kiste.
