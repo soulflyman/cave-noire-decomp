@@ -152,7 +152,7 @@ mechanic - it's deliberately triggered by using that item, not by bumping a wall
 | `$03` | Fire damage/effect (item-screen name confirmed: ファイヤー/Faiyaa) | "Fire" |
 | `$06` | Temporary attack buff, magnitude/duration scaled by Lucky | Likely "Kougeki" (temporary attack increase) |
 | `$07` | Orb — counted toward Orb quest progress (`$c16c`); item-screen name confirmed オーブ/Oobu | "Orb" |
-| `$0a` | Invisibility (item-screen name confirmed: トウメイ/Toumei) | "Toumei" |
+| `$0a` | Invisibility (item-screen name confirmed: トウメイ/Toumei). Official booklet adds: cannot attack or open chests while cloaked, and Attack/Defense/Cloak buffs cannot be stacked with each other | "Toumei" |
 | `$0d` | Light up the current room (item-screen name confirmed: アカリ/Akari). Confirmed live: using it clears the inventory slot and immediately redraws a larger chunk of the dark tilemap (dark `$5f` tile count dropped from 204 to 136 in one use on a real dark-floor savestate) - a one-shot "reveal more of this room" effect, not a lasting light radius. Monsters within the newly-lit area are **still** shown only as the eye-pair sprite until actually approached - the Akari reveal and the "monster visible" reveal are separate systems. | "Akari" |
 | `$12` | `wPlayerMaxHP += 1`, doesn't occupy a slot | "HP no Moto" (+1 max HP, doesn't occupy a slot) |
 | `$14` | Scans the 4 adjacent tiles for raw terrain class `$22` (same "scan 4 directions" family as `$04` below) - strongly implies raw tile `$22` is the Fairy Cage itself. Static deduction only, not live-confirmed: also the item hardcoded into starting-inventory slot 2 on early quest-4 (Fairy) floors (see "Starting inventory" above), which only makes sense for a guaranteed early-game key | "Kagi" (fairy cage key) |
@@ -170,11 +170,29 @@ matched to a specific StrategyWiki name/live-confirmed:
 | `$05` | Stashes the player's own position, then enters the same `$c125`=8 "scan adjacent tiles" state `$04` uses | Possibly Ganseki (fill hole/rock barrier) |
 | `$0c` | Same "stash own position, scan state 8" pattern as `$05` | Possibly Ganseki or Oriru |
 | `$0e` | Stashes the player's own position, then examines *all 4* neighboring tiles at once (storing each one's raw class separately) rather than scanning for one match | Possibly Oriru (place stairs - needs to evaluate which adjacent tile is a valid floor) |
-| `$08`, `$09`, `$0b` | Each scales a value by Lucky (`$c123`) and writes it into the same kind of bonus-table variable the sword/shield attack/defense bonus uses (`$c12e` and friends) - temporary combat buffs, structurally similar to the already-confirmed `$06` | Candidates: Change (weaken monsters), Mamori (temp. defense), Lucky (+1 Lucky) - not told apart from each other yet |
+| `$08`, `$09`, `$0b` | Each scales a value by Lucky (`$c123`) and writes it into the same kind of bonus-table variable the sword/shield attack/defense bonus uses (`$c12e` and friends) - temporary combat buffs, structurally similar to the already-confirmed `$06` | Candidates: Mamori (temp. defense), Lucky (+1 Lucky) - the official instruction booklet describes both a timed Defense buff and a non-slot "+1 Luck" item matching this shape, but its "Transforms a monster in the room" entry (likely "Change") reads nothing like a bonus-table write, so that candidate probably belongs to one of the still fully untraced IDs below instead - not told apart from each other yet |
 | `$13` | Enters the same generic "targeted effect" state (`$c125=21`, bank 1 `$4125`) that Fire (`$03`) also uses - selected there via `$c540` (Fire=`2`, this item=`3`). After a short delay (`$c542=$20` frames) it calls `Call_001_56d2` (bank 1 `$56d2`), which walks **all 36 monster slots** (`$c5c0`-`$c800`) and, for each occupied slot whose **type byte (offset `$01`) matches a reference value in `$c420`**, calls `Call_001_4b08` (bank 1 `$4b08`) on it - which writes the monster's position/type into `$c225`-`$c227`, looks up a per-room record via the same `$206b` room-link table the warp/secret-door code uses, and subtracts a per-class size/weight-tier constant (table at `$7915`, now resolved - see [Monster System](Monster-System) "A per-class 'size/weight tier' byte") from a counter at offset `$11` of that room record. Reads like "find every monster of a specific type on this floor and decrement a per-room/per-type counter for each" - plausibly a targeted repel/banish effect, but not confirmed live and not matched to a specific StrategyWiki name | Candidate: a type-targeted effect (not a simple damage spell, since no HP field is touched) |
 | `$20` | The dispatch table entry (bank 1, index 31) points at `$5acd`, which turns out to be the tail byte of an unrelated, overlapping `jp` instruction from a *different*, smaller `rst RST_00` table a few bytes earlier (`$5ac5`) - the two tables' byte ranges legitimately overlap, same as any densely packed ROM; both decode correctly from their own respective entry points. Executed from `$5acd`, the single byte there is `inc [hl]` - and `hl` at that point still holds the address of **the item's own inventory slot** (set earlier in `Call_001_5190_ItemUseEffectDispatch` and never touched since, including by the `rst RST_00` trampoline, which explicitly restores the caller's original `hl` before jumping). So **using item `$20` increments its own slot value in place, turning it into item `$21`** - rather than being consumed outright. It then calls `Call_001_76ab` (bank 1 `$76ab`), which scans the current room's whole tile grid (8×10, via the same per-tile-check helper used by other "scan for a raw tile class" items) for a match, conditionally plays sound `$55` if one is found, and finally enters a *different* generic effect state (`$c125=19`) with a target position copied from `$c225`/`$c226` - looks like a "search the room for something, then show a visual effect at a found position" item that also upgrades itself on use. `$21` never otherwise appears as a valid item type anywhere else that's been traced, and `$20` itself never appears in any of the per-quest/level item-weight pool templates documented above - both consistent with this being a rare, specially-placed item rather than a normal floor/chest drop | Candidate: unclear - the self-upgrade mechanic doesn't obviously match Faigaa/Tobu/Gold; needs a savestate with this item in inventory to confirm live |
 
-Still fully unidentified: Tobu (warp), Gold (no slot - but see `$10`/`$11` in
+## Fully untraced dispatch entries - next static target
+
+`Call_001_5190_ItemUseEffectDispatch`'s table has 32 entries (`$01`-`$20`); the "Confirmed"
+and "Partially understood" tables above account for 26 of them. **Six item type IDs have
+never been traced at all**: `$0f`, `$10`, `$11`, `$15`, `$16`, `$17`. `$10`/`$11` are
+explained separately (loose gold piles, see [Dungeon Mechanics](Dungeon-Mechanics) - they
+skip the item-use dispatch entirely since they're never actually picked up into inventory
+as a plain item). That leaves **`$0f`, `$15`, `$16`, `$17` genuinely unexamined** - a good
+next static-analysis target.
+
+The official instruction booklet describes two item effects that don't match any already-
+confirmed or partially-understood ID above, and are therefore the leading candidates for
+these four: "Fly ... Instantly warp to another part of the room" (matches "Tobu", listed
+below as still fully unidentified) and "Transforms a monster in the room" (likely "Change" -
+previously guessed at `$08`/`$09`/`$0b`, but those three write to the bonus-table/Lucky-
+scaling pattern instead, which doesn't fit "transform a monster"). Tracing `$0f`/`$15`/
+`$16`/`$17`'s dispatch targets the same way `$13`/`$20` were traced should settle both.
+
+Still fully unidentified: Tobu (warp - see above), Gold (no slot - but see `$10`/`$11` in
 [Dungeon Mechanics](Dungeon-Mechanics) for the actual loose-gold-pile item types, which may
 or may not be what the wiki calls "Gold"), and whichever of the above table's candidates
 don't end up matching `$13`/`$20` either.

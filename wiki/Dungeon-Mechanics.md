@@ -148,7 +148,19 @@ Two more structurally identical "scan all 4 directions for a matching tile ID" r
 exist in the item-effect code (`Call_000_2f48` used from `$53a2`, `Call_000_2f4c` used from
 `$572c`) — plausibly the "Ganseki" (fill hole/rock barrier) and "Oriru" (place stairs on
 adjacent tile) item effects, which both need to find a qualifying adjacent tile. Not
-individually confirmed.
+individually confirmed from code, but the official English instruction booklet
+(`temp/cave-noire-instruction-booklet/CaveNoire_InstructionBooklet_djvu.txt`) independently
+describes exactly these two effects: "When placed on top of a hole or lava, it creates a
+tile. When placed on a tile, it creates an obstacle." (Ganseki) and "If there are no
+obstacles, creates stairs leading to the next level." (Oriru) — text confirmation, not a
+code-level one, but it matches the "find a qualifying adjacent tile" shape closely enough
+to raise confidence on both.
+
+A separate booklet hint worth tracking: "What at first sight looks like a hole, may
+actually be an 'invisible tile' that can be walked upon. If a Centipede or Tarantula walks
+above the hole, it could be an invisible tile." This implies a disguised-floor tile class
+visually identical to a real hole but walkable - distinct from both the confirmed `$1d`
+crack tile and genuine holes, and not yet identified in the tile-class table below.
 
 Bit 7 of the raw tile byte means "this is an item/chest, not terrain" - see
 `tools/tile_grid.py` (the live grid-overlay tool) for the full `$d500` overlay
@@ -247,6 +259,12 @@ provided by the user via `tools/play_and_save.py`):
   tiles are remembered, not just shown within a fixed radius of the player's current
   position.
 
+The official instruction booklet adds one behavioral detail not yet verified live: "Check a
+monster's HP using the Select Button. If a monster is in fog, however, their HP cannot be
+checked" - i.e. the Select-button HP display and the eye-pair fog-of-war rendering are meant
+to be linked (can't inspect what you can't see clearly), not independent systems. Not
+confirmed against code or a savestate yet.
+
 **Still open:** the exact routine that performs this per-move "reveal nearby tiles" redraw
 hasn't been located yet - a search for `$5f` used as an immediate comparison constant in
 banks 0/1 came up empty, suggesting the redraw doesn't check "is this tile still dark" but
@@ -330,9 +348,20 @@ chest vs. a bare item pile, an Orb/Fairy-cage placement roll, or a secret-passag
 count. Needs a savestate at the moment a new floor is generated, with `$c271`-`$c27a` and
 the bank 3 `$5655` template dumped, to pin down the actual effect.
 
+## Lava (behavior confirmed from the official manual, tile class still unlocated)
+
+The official English instruction booklet is explicit and slightly more specific than the
+StrategyWiki summary: "If you fall into it, your HP will be reduced to zero, and you will
+fail your quest." This is a hard instant-death trap, distinct from a **Hole** (same booklet:
+"If you fall down a hole, you will take damage, reducing your HP, and sending you to
+below" - damage + floor drop, survivable). Still no raw tile value identified for lava in
+any room dump so far; needs a savestate in a room with visible lava (per the wiki, likely
+near Salamander spawns).
+
 ## Not located at all
 
-- **Lava** — "lose all HP if you fall in" per the wiki. No tile class identified yet.
-- **Fairy Cage** — unlockable with a key item, not investigated.
+- **Fairy Cage** — unlockable with a key item (booklet: "A box in which fairies have been
+  locked. Use a key to open it" - matches the already-confirmed Kagi/`$14` item code, see
+  [Item System](Item-System)), not investigated live.
 
 See [Open Questions](Open-Questions) for the full savestate wishlist.

@@ -32,8 +32,15 @@ fastest way to contribute.
   pair's two room-index endpoints, and stepping onto the tile + pressing A teleports to
   whichever endpoint isn't the current room, same floor, different room. See
   [Dungeon Mechanics](Dungeon-Mechanics).
-- **Lava**: no tile class identified at all. Needs a savestate in a room with lava tiles
-  (per the wiki, likely near Salamander spawns).
+- **Lava**: behavior now confirmed from the official English instruction booklet - falling
+  in zeroes your HP outright and fails the quest (distinct from a Hole, which only damages
+  + drops you a floor). Tile class still not identified. Needs a savestate in a room with
+  lava tiles (per the wiki, likely near Salamander spawns).
+- **A possible "fake hole" / invisible walkable tile**: the official booklet warns "What at
+  first sight looks like a hole, may actually be an 'invisible tile' that can be walked
+  upon. If a Centipede or Tarantula walks above the hole, it could be an invisible tile."
+  Not matched to any raw tile value yet. Needs a savestate of a room with such a tile and
+  a ground-based monster observed crossing it.
 - ~~**Door** (dungeon exit)~~ — confirmed: approaching it and pressing A sets `$c100=12`,
   triggering a fade + corridor-run animation and a results screen with a looping
   per-monster kill list (name/weight/height). Still open: the exact input to dismiss the
@@ -43,10 +50,14 @@ fastest way to contribute.
   [Dungeon Mechanics](Dungeon-Mechanics).
 - **Fairy Cage**: not investigated at all. Needs a savestate in a Fairy quest with a visible
   cage and the key item in inventory.
-- **Ganseki item effect** (fill hole/rock barrier): needs a savestate with the Ganseki item
-  in inventory, standing next to a hole.
-- **Oriru item effect** (place stairs on adjacent tile): needs a savestate with the Oriru
-  item in inventory.
+- **Ganseki item effect** (fill hole/rock barrier): the official instruction booklet
+  confirms this behavior in text ("When placed on top of a hole or lava, it creates a tile.
+  When placed on a tile, it creates an obstacle.") but it's not yet matched to a specific
+  item ID or confirmed live. Needs a savestate with the Ganseki item in inventory, standing
+  next to a hole.
+- **Oriru item effect** (place stairs on adjacent tile): booklet-confirmed in text ("If
+  there are no obstacles, creates stairs leading to the next level."), same caveat as
+  Ganseki above. Needs a savestate with the Oriru item in inventory.
 - ~~**The "real" two-phase treasure chest**~~ — resolved: it's the same `$d500`
   tile-overlay mechanism after all, the bit 7 meaning was just initially read backwards.
   Bit 7 set = still-closed chest (select with direction + A opens it, revealing the item
@@ -80,6 +91,12 @@ fastest way to contribute.
 
 ## Item system ([Item System](Item-System))
 
+- **Four item type IDs never traced at all**: `$0f`, `$15`, `$16`, `$17` (see
+  [Item System](Item-System) "Fully untraced dispatch entries"). Purely static work -
+  decode their `Call_001_5190_ItemUseEffectDispatch` entries the same way `$13`/`$20` were
+  done. The official instruction booklet's "Fly" (warp to another spot in the same room)
+  and "transforms a monster" effects don't match any already-traced ID, making them the
+  leading candidates for these four.
 - **~7 item type IDs with known behavior but unconfirmed exact name**: `$04`/`$05`/`$08`/
   `$09`/`$0b`/`$0c`/`$0e`/`$13`/`$20` (see [Item System](Item-System) "Partially understood"
   for what each one's code actually does - a real master dispatch table was found at
