@@ -32,6 +32,7 @@ things that need a specific savestate to confirm.
 - **[Item System](Item-System)** — inventory, item effects, swords/shields
 - **[Quest System](Quest-System)** — quest types, objective tracking, floor depth
 - **[Dungeon Mechanics](Dungeon-Mechanics)** — tile classes, stairs, warp, floor warnings, darkness
+- **[Sprite Glossary](Sprite-Glossary)** — every known terrain/item/monster ID with its actual in-game graphic, by category
 - **[Player Death and Game Over](Player-Death-and-Game-Over)**
 - **[Building the ROM](Building-the-ROM)** — toolchain and build instructions
 - **[Open Questions](Open-Questions)** — findings that still need a specific savestate to confirm
