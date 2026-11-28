@@ -179,6 +179,8 @@ confirmed or strongly-suspected meaning; plenty of other values (`$0b`, `$0c`, `
 | `$06`/`$07`/`$08`/`$09` | Wall, various border orientations | Confirmed as solid/wall-class (consistently forms room borders), exact per-value orientation not individually confirmed |
 | `$10` | Stairs down | Confirmed live (`save_002.state`, user-identified in the grid tool at F3) |
 | `$1d` | Floor crack ("!!" warning) - see the hole-jump section above | Confirmed |
+| `$15`, `$16`, `$17`, `$19`, `$1b` | Likely **Underground Stream** (manual: "You can walk across it normally") with `$16`/`$17` forming a short **Bridge** strip across it | Plausible - an `autowalker.py`-found room (floor 2) shows these values forming a dense wavy-line texture distinct from plain floor, with a short double-tile strip breaking the pattern (screenshot matches the booklet's "stream crossed by a bridge" look); not confirmed by walking onto it |
+| `$18`, `$1e` | A paired column/pillar decoration (`$18` cap, `$1e` body) seen forming two vertical architectural strips in an `autowalker.py`-found room | Unconfirmed - unclear if walkable or a solid obstacle |
 
 ### The secret-passage ("?") mechanic, confirmed live
 
@@ -347,6 +349,23 @@ happen through another computed/indirect lookup, not yet located), so what this 
 chest vs. a bare item pile, an Orb/Fairy-cage placement roll, or a secret-passage/trap
 count. Needs a savestate at the moment a new floor is generated, with `$c271`-`$c27a` and
 the bank 3 `$5655` template dumped, to pin down the actual effect.
+
+## A few more `$c125` movement-substates identified
+
+`autowalker.py`'s random exploration surfaced several `$c125` values outside the
+previously-documented set, three of which were identifiable immediately from their
+screenshot:
+
+| `$c125` | Screen shown | Meaning |
+|---|---|---|
+| `2` | Item-screen popup (`つかう`/`すてる`/`やめる` - use/toss/cancel) | Item-use menu open |
+| `5` | "どくけし をひろった。" ("Picked up Dokukeshi.") | Item-pickup confirmation popup |
+| `14` | Character sheet (name, HP, こうげき/ラッキー/ぼうぎょ/たいちょう - attack/lucky/defense/condition) | Camp stats screen (Start button, see the official manual's "Getting Started") |
+
+States `13`, `18`, `22` were also flagged but their screenshots just showed ordinary
+mid-movement dungeon frames with no obvious distinguishing UI - likely fine-grained
+animation sub-steps of the walk/monster-turn cycle rather than separate mechanics, but not
+individually confirmed.
 
 ## Lava (behavior confirmed from the official manual, tile class still unlocated)
 

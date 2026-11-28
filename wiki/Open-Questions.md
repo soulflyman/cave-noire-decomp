@@ -32,6 +32,12 @@ fastest way to contribute.
   pair's two room-index endpoints, and stepping onto the tile + pressing A teleports to
   whichever endpoint isn't the current room, same floor, different room. See
   [Dungeon Mechanics](Dungeon-Mechanics).
+- **Unidentified terrain IDs `$0f`, `$11`, `$20`, `$23`, `$24`**: each found once via
+  `tools/autowalker.py`, no screenshot gave a confident read (open floor areas, a single
+  odd tile at a room border, one next to an Orb-quest monster). Needs a movement test
+  (try to walk onto each) to tell solid/obstacle from walkable decoration - `$11` in
+  particular sat right next to a confirmed `$10` stairs tile, so it may be a stairs
+  variant (up vs. down?) worth checking first.
 - **Lava**: behavior now confirmed from the official English instruction booklet - falling
   in zeroes your HP outright and fails the quest (distinct from a Hole, which only damages
   + drops you a floor). Tile class still not identified. Needs a savestate in a room with
@@ -139,9 +145,10 @@ fastest way to contribute.
   cause. Still open: no literal store ever sets `$c100` to `11`, so how/when the dispatcher
   actually enters this state wasn't found — would need a savestate shortly before this
   Game Over to trace live. See [Player Death and Game Over](Player-Death-and-Game-Over).
-- **Quest type 3/4 (Orb/Fairy) objective addresses**: derived statically from the ROM bank 2
-  header table, unlike quest types 1/2 which were confirmed live against the HUD. Needs
-  savestates with an active Orb or Fairy quest to confirm the same way.
+- ~~**Quest type 3/4 (Orb/Fairy) objective addresses**~~ — confirmed live: an autowalker-
+  found Orb-quest savestate showed `$c16d=1` matching its confirmation scroll text ("search
+  for 1 orb"), and a Fairy-quest savestate showed `$c170=1` matching its "0/1" HUD readout.
+  See [Quest System](Quest-System).
 - **The actual code that writes the resolved quest target into `$c16b`/`$c16d`/`$c16e`/
   `$c170` at quest start**: searched further and ruled out one more false lead (a literal
   `$6e1c` operand in bank 0 that turned out to belong to a sound-engine routine with bank 4

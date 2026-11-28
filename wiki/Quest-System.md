@@ -43,6 +43,18 @@ These match the StrategyWiki walkthrough table exactly. A 16-byte header right b
 data (`$6e00`-`$6e0f`) links each quest type to its `[WRAM target address, table pointer]`
 pair.
 
+**Confirmed live** (via `tools/autowalker.py` savestates, quest types 3/4 reached by chance
+during an unattended random-movement run): a Level-1 Orb quest's confirmation scroll reads
+"クエスト3 レベル1 / オーブを 1つさがす。" ("Quest 3 Level 1. Search for 1 orb.") with
+`$c16d` (the documented Orb target address) already holding `1` at that exact moment -
+matching the ROM table's `$6e24` level-1 entry exactly. A Level-1 Fairy quest, captured
+later and already deep into the dungeon (floor 3), showed the HUD reading "フェアリー 0/1"
+with `$c170` (the documented Fairy target address) holding `1` - again matching the ROM
+table. Both quest types' target-address mapping from the table above is therefore now
+confirmed live, not just statically derived. The exact write-time code still wasn't pinned
+down (see below and [Open Questions](Open-Questions)), but the *result* is now
+cross-checked against real gameplay for every quest type.
+
 **Not found:** the actual code that reads this header/table at quest-start time and writes
 the resolved value into `$c16b` etc. — this likely involves an explicit ROM bank switch to
 bank 2 that wasn't traced. The table itself was located by directly searching the ROM bytes
