@@ -32,16 +32,28 @@ fastest way to contribute.
   pair's two room-index endpoints, and stepping onto the tile + pressing A teleports to
   whichever endpoint isn't the current room, same floor, different room. See
   [Dungeon Mechanics](Dungeon-Mechanics).
-- **Unidentified terrain IDs `$0f`, `$11`, `$20`, `$23`, `$24`**: each found once via
-  `tools/autowalker.py`, no screenshot gave a confident read (open floor areas, a single
-  odd tile at a room border, one next to an Orb-quest monster). Needs a movement test
-  (try to walk onto each) to tell solid/obstacle from walkable decoration - `$11` in
-  particular sat right next to a confirmed `$10` stairs tile, so it may be a stairs
-  variant (up vs. down?) worth checking first.
-- **Lava**: behavior now confirmed from the official English instruction booklet - falling
-  in zeroes your HP outright and fails the quest (distinct from a Hole, which only damages
-  + drops you a floor). Tile class still not identified. Needs a savestate in a room with
-  lava tiles (per the wiki, likely near Salamander spawns).
+- ~~**Lava**~~ — confirmed live by movement test: raw tile `$1b` zeroes `wPlayerHP` in a
+  single step and drops the main dispatcher into the death/floor-transition state cluster,
+  reproduced twice independently. See [Dungeon Mechanics](Dungeon-Mechanics) "Lava -
+  confirmed live". Two neighboring values (`$15`, `$19`) in the same tile field are very
+  likely also Lava but untested individually.
+- **Candidate Bridge tiles `$16`/`$17`**: a short, visually distinct strip inside the same
+  tile field as the confirmed Lava (`$1b`) above - every direct path from the one tested
+  savestate's spawn crosses the lava first. Needs a different savestate/room, or a way to
+  approach from the opposite side, to confirm without dying first.
+- **`$18`/`$1e` (pillar-looking tiles)**: movement test was inconclusive - an adjacent
+  monster's attack-targeting state corrupted the position reading mid-test (see
+  [Dungeon Mechanics](Dungeon-Mechanics) "`$c125` movement-substates", state `22`). Needs a
+  retest in a room with no monster nearby.
+- **`$20`**: movement test inconclusive - the test savestate's player was at 1 HP with an
+  active threat and died before reaching the tile. Needs a healthier savestate.
+- **`$23`**: sits inside a small alcove fully enclosed by `$0e` tiles, unreachable by direct
+  movement in the one tested room. Possibly gated behind the secret-passage mechanic
+  (bump the surrounding wall and wait, same as the confirmed "?" mechanic) rather than a
+  plain floor tile - worth trying that specifically.
+- **`$0f`, `$11`, `$24`**: resolved as harmless walkable floor/decoration variants (no
+  effect observed stepping onto any of them) - no longer open, see
+  [Dungeon Mechanics](Dungeon-Mechanics) terrain-ID table.
 - **A possible "fake hole" / invisible walkable tile**: the official booklet warns "What at
   first sight looks like a hole, may actually be an 'invisible tile' that can be walked
   upon. If a Centipede or Tarantula walks above the hole, it could be an invisible tile."

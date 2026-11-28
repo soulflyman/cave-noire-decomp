@@ -179,8 +179,14 @@ confirmed or strongly-suspected meaning; plenty of other values (`$0b`, `$0c`, `
 | `$06`/`$07`/`$08`/`$09` | Wall, various border orientations | Confirmed as solid/wall-class (consistently forms room borders), exact per-value orientation not individually confirmed |
 | `$10` | Stairs down | Confirmed live (`save_002.state`, user-identified in the grid tool at F3) |
 | `$1d` | Floor crack ("!!" warning) - see the hole-jump section above | Confirmed |
-| `$15`, `$16`, `$17`, `$19`, `$1b` | Likely **Underground Stream** (manual: "You can walk across it normally") with `$16`/`$17` forming a short **Bridge** strip across it | Plausible - an `autowalker.py`-found room (floor 2) shows these values forming a dense wavy-line texture distinct from plain floor, with a short double-tile strip breaking the pattern (screenshot matches the booklet's "stream crossed by a bridge" look); not confirmed by walking onto it |
-| `$18`, `$1e` | A paired column/pillar decoration (`$18` cap, `$1e` body) seen forming two vertical architectural strips in an `autowalker.py`-found room | Unconfirmed - unclear if walkable or a solid obstacle |
+| `$1b` | **Lava** | **Confirmed live, twice independently** - see "Lava" below |
+| `$11` | Harmless floor variant, likely decorative (sits right next to a confirmed `$10` stairs tile) | Confirmed walkable, no side effect observed |
+| `$24` | Harmless floor variant, seen at a room's south border | Confirmed walkable, no side effect observed |
+| `$15`, `$19` | Same dense wavy texture as the confirmed-lethal `$1b`, in the same room | Not individually tested, but very likely also Lava given the shared visual pattern |
+| `$16`, `$17` | A short, visually distinct double-tile strip breaking up the `$15`/`$19`/`$1b` wavy texture - candidate **Bridge** (manual: "you can walk across it normally") | Unconfirmed - every direct approach path from the one tested savestate's spawn point crosses the lethal `$1b` first, so this couldn't be reached without dying; needs a different savestate/approach angle |
+| `$18`, `$1e` | A paired column/pillar decoration (`$18` cap, `$1e` body) seen forming two vertical architectural strips in an `autowalker.py`-found room | Test inconclusive - an adjacent monster's attack-targeting state (`$c125=22`, see below) corrupted the player-position reading mid-test; needs a retest without a monster nearby |
+| `$20` | Seen at a room border | Test inconclusive - the test savestate's player was already at 1 HP with an active threat nearby and died before reaching the tile; needs a healthier savestate |
+| `$23` | Sits inside a small walled-off alcove, fully enclosed by `$0e` tiles | Unreachable by direct movement in the one tested room - either a decorative dead end or gated behind the secret-passage mechanic (see below); not resolved |
 
 ### The secret-passage ("?") mechanic, confirmed live
 
@@ -365,17 +371,37 @@ screenshot:
 States `13`, `18`, `22` were also flagged but their screenshots just showed ordinary
 mid-movement dungeon frames with no obvious distinguishing UI - likely fine-grained
 animation sub-steps of the walk/monster-turn cycle rather than separate mechanics, but not
-individually confirmed.
+individually confirmed. State `22` specifically showed up repeatedly alongside a visible,
+adjacent monster sprite during the tile movement tests below, including one case where it
+corrupted the player-position read entirely (the viewport-grid code reads `$c503`/`$c504`
+assuming those are always the player's own row/col, but while this state is active the
+values read back implied a multi-room "teleport" that never actually happened on screen) -
+tentatively, an attack-targeting/monster-turn exchange state that temporarily repurposes
+the position variables for the monster's cell, not a distinct player-movement mechanic.
 
-## Lava (behavior confirmed from the official manual, tile class still unlocated)
+## Lava - confirmed live: raw tile `$1b`
 
 The official English instruction booklet is explicit and slightly more specific than the
 StrategyWiki summary: "If you fall into it, your HP will be reduced to zero, and you will
 fail your quest." This is a hard instant-death trap, distinct from a **Hole** (same booklet:
 "If you fall down a hole, you will take damage, reducing your HP, and sending you to
-below" - damage + floor drop, survivable). Still no raw tile value identified for lava in
-any room dump so far; needs a savestate in a room with visible lava (per the wiki, likely
-near Salamander spawns).
+below" - damage + floor drop, survivable).
+
+**Confirmed live** via a movement test against an `autowalker.py`-found savestate (floor 2,
+a room with a dense wavy-texture tile field the bot had flagged as unidentified): stepping
+the player one tile onto raw value `$1b` zeroed `wPlayerHP` (`$c120`) instantly in the same
+input step (`6` → `0`, then separately `16` → ... → `0` on a second, independent run from a
+fresh reload of the same savestate) and immediately transitioned the main dispatcher
+(`$c100`) to `9` - part of the same floor-transition/death cluster already documented for
+Game Over trigger #3 (`$c100=11`, see [Player Death and Game Over](Player-Death-and-Game-Over)).
+Reproduced twice independently. This is a full HP wipe in a single step, not a gradual
+poison/combat tick (which deals 1-4 points per turn in every confirmed combat log so far) -
+matching the booklet's "reduced to zero" wording exactly rather than ordinary damage.
+
+The same room has two other raw values (`$15`, `$19`) sharing the identical wavy texture,
+very likely also Lava, plus a short, visually distinct double-tile strip (`$16`/`$17`) that
+looks like a safe crossing path (candidate **Bridge**) - see the terrain-ID table above for
+what's still open about those.
 
 ## Not located at all
 
