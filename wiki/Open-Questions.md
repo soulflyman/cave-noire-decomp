@@ -47,10 +47,19 @@ fastest way to contribute.
   retest in a room with no monster nearby.
 - **`$20`**: movement test inconclusive - the test savestate's player was at 1 HP with an
   active threat and died before reaching the tile. Needs a healthier savestate.
-- **`$23`**: sits inside a small alcove fully enclosed by `$0e` tiles, unreachable by direct
-  movement in the one tested room. Possibly gated behind the secret-passage mechanic
-  (bump the surrounding wall and wait, same as the confirmed "?" mechanic) rather than a
-  plain floor tile - worth trying that specifically.
+- ~~**`$23`**~~ — the secret-passage hypothesis is ruled out directly: `$c20f` (the
+  per-room secret-passage bitmask) reads `0` for this room, meaning there's nothing for
+  that mechanism to reveal here. The movement block found while approaching it turned out
+  to be a more fundamental finding than `$23` itself - see the next bullet.
+- **Collision doesn't reliably match raw tile value**: found while testing `$23` above -
+  the player walked freely across four `$09`-valued cells, then bumped into a wall
+  one cell further that has the **exact same raw byte value** `$09` (confirmed by reading
+  WRAM directly). See [Dungeon Mechanics](Dungeon-Mechanics) "A collision caveat" for the
+  leading hypothesis (room footprint narrower than the 16x16 addressable grid, trailing
+  cells are reused/uninitialized buffer bytes rather than a real "wall" marker). Needs
+  static analysis of the actual collision-check code (distinct from the already-documented
+  tile-class dispatcher) to resolve properly - this affects how much to trust every raw
+  terrain-ID table on that page.
 - **`$0f`, `$11`, `$24`**: resolved as harmless walkable floor/decoration variants (no
   effect observed stepping onto any of them) - no longer open, see
   [Dungeon Mechanics](Dungeon-Mechanics) terrain-ID table.

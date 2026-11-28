@@ -186,7 +186,29 @@ confirmed or strongly-suspected meaning; plenty of other values (`$0b`, `$0c`, `
 | `$16`, `$17` | A short, visually distinct double-tile strip breaking up the `$15`/`$19`/`$1b` wavy texture - candidate **Bridge** (manual: "you can walk across it normally") | Unconfirmed - every direct approach path from the one tested savestate's spawn point crosses the lethal `$1b` first, so this couldn't be reached without dying; needs a different savestate/approach angle |
 | `$18`, `$1e` | A paired column/pillar decoration (`$18` cap, `$1e` body) seen forming two vertical architectural strips in an `autowalker.py`-found room | Test inconclusive - an adjacent monster's attack-targeting state (`$c125=22`, see below) corrupted the player-position reading mid-test; needs a retest without a monster nearby |
 | `$20` | Seen at a room border | Test inconclusive - the test savestate's player was already at 1 HP with an active threat nearby and died before reaching the tile; needs a healthier savestate |
-| `$23` | Sits inside a small walled-off alcove, fully enclosed by `$0e` tiles | Unreachable by direct movement in the one tested room - either a decorative dead end or gated behind the secret-passage mechanic (see below); not resolved |
+| `$23` | Sits inside a small alcove, approached by walking across several `$09`-valued cells before bumping into a wall (`$c125=7`) one cell short of it | Secret-passage mechanism ruled out directly (`$c20f=0` for this room - nothing to discover) - see the collision caveat right below the table for why this block is actually more interesting than `$23` itself |
+
+#### A collision caveat: `$09` is not reliably "wall" on its own
+
+While testing `$23` above, the player walked freely across four consecutive `$09`-valued
+cells `(2,1)` through `(2,4)` (same room as the `$23` test, raw bytes read directly from
+WRAM: `$c841`-`$c844`, all `$09`), then bumped (`$c125=7`, the permanent "wall" state) trying
+to step from `(2,4)` onto `(2,5)` - **also raw value `$09`, byte-for-byte identical** to the
+four cells just walked across (confirmed by reading the raw addresses directly, not just the
+grid tool's labels, to rule out a decode bug). So collision can't simply be "is this raw tile
+value in the wall set `{$06,$07,$08,$09}`" the way the terrain-ID table above assumes - two
+cells with the exact same byte, one walkable and one not, a few tiles apart in the same row.
+
+Likely explanation (not confirmed): the addressable room grid is 16x16 (see "Decoding the
+room layout" below), but a room's actual *placed* shape may be narrower/shorter than that,
+with cells beyond its real footprint left as unInitialized/reused buffer bytes that just
+happen to decode as a plausible-looking value rather than a dedicated "out of bounds"
+marker - i.e. collision may be driven by a separate per-room width/height bound rather than
+(or in addition to) the tile's own raw ID. This means **the terrain-ID tables on this page
+describe what's visually/byte-wise present, not necessarily what's mechanically "wall" vs
+"floor"** - worth keeping in mind for any future tile-identification work, and a good
+candidate for a dedicated static-analysis pass (find the actual collision-check code, not
+just the tile-class dispatcher already documented above).
 
 ### The secret-passage ("?") mechanic, confirmed live
 
