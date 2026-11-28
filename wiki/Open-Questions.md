@@ -54,12 +54,13 @@ fastest way to contribute.
 - **Collision doesn't reliably match raw tile value**: found while testing `$23` above -
   the player walked freely across four `$09`-valued cells, then bumped into a wall
   one cell further that has the **exact same raw byte value** `$09` (confirmed by reading
-  WRAM directly). See [Dungeon Mechanics](Dungeon-Mechanics) "A collision caveat" for the
-  leading hypothesis (room footprint narrower than the 16x16 addressable grid, trailing
-  cells are reused/uninitialized buffer bytes rather than a real "wall" marker). Needs
-  static analysis of the actual collision-check code (distinct from the already-documented
-  tile-class dispatcher) to resolve properly - this affects how much to trust every raw
-  terrain-ID table on that page.
+  WRAM directly). Partially traced (see [Dungeon Mechanics](Dungeon-Mechanics) "Movement
+  collision, partially traced"): found and confirmed the room-bounds check (8 rows x 10
+  columns, matching `tools/tile_grid.py`'s viewport dimensions) and a monster-occupancy
+  check with a class `18`/`19` exemption (now documented in
+  [Monster System](Monster-System)), but neither explains this specific block - no monster
+  was present at the blocking cell and it's well inside the 8x10 bounds. **Still open:**
+  the actual generic terrain-solid check, if one exists as a separate routine at all.
 - **`$0f`, `$11`, `$24`**: resolved as harmless walkable floor/decoration variants (no
   effect observed stepping onto any of them) - no longer open, see
   [Dungeon Mechanics](Dungeon-Mechanics) terrain-ID table.

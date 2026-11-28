@@ -199,16 +199,49 @@ grid tool's labels, to rule out a decode bug). So collision can't simply be "is 
 value in the wall set `{$06,$07,$08,$09}`" the way the terrain-ID table above assumes - two
 cells with the exact same byte, one walkable and one not, a few tiles apart in the same row.
 
-Likely explanation (not confirmed): the addressable room grid is 16x16 (see "Decoding the
-room layout" below), but a room's actual *placed* shape may be narrower/shorter than that,
-with cells beyond its real footprint left as unInitialized/reused buffer bytes that just
-happen to decode as a plausible-looking value rather than a dedicated "out of bounds"
-marker - i.e. collision may be driven by a separate per-room width/height bound rather than
-(or in addition to) the tile's own raw ID. This means **the terrain-ID tables on this page
-describe what's visually/byte-wise present, not necessarily what's mechanically "wall" vs
-"floor"** - worth keeping in mind for any future tile-identification work, and a good
-candidate for a dedicated static-analysis pass (find the actual collision-check code, not
-just the tile-class dispatcher already documented above).
+This means **the terrain-ID tables on this page describe what's visually/byte-wise present,
+not necessarily what's mechanically "wall" vs "floor"** - worth keeping in mind for any
+future tile-identification work.
+
+#### Movement collision, partially traced
+
+Followed the actual move-commit code (bank 0, the unlabeled function starting around
+`$3406` that stages a move, then - *before* checking anything - copies the staged position
+straight into `$c500`-`$c504`) to find what decides whether a step actually succeeds or
+produces the permanent "bump" state (`$c125=7`, see the secret-passage section below for
+where that state was first observed):
+
+```
+... (position already committed to $c500-$c504 at this point)
+call Call_000_3d8f    ; the real gate - see below
+ret nc                ; success: move stays committed
+ld a, $07
+ld [$c125], a         ; failure: enter the permanent bump state
+```
+
+`Call_000_3d8f` (bank 0, `$3d8f`) turned out to be a **monster/object-occupancy check, not
+a generic terrain-wall check**: it tries up to three of the four cardinal neighbor cells (in
+a priority order selected by the player's current facing direction, `$c510`), each via:
+
+1. `Call_000_3e08` (bank 0) - a hardcoded room-bounds check: fails (treated as blocked) if
+   the candidate row is `>=8` or column is `>=10` - **this is the real origin of the 8x10
+   viewport dimensions** `tools/tile_grid.py` already uses for rendering (previously
+   inferred from screen/OAM geometry, now confirmed from the actual bounds-check code: the
+   addressable room data is 16x16, but only an 8-row x 10-column window is ever reachable by
+   movement).
+2. `$57bb`/`Call_001_57db` (bank 1) - scans the `$c5c0` monster array for an occupant at that
+   candidate cell. Empty = pass. Occupied = blocked, **except** two specific classes are
+   special-cased as non-blocking (see [Monster System](Monster-System) "Non-monster
+   entries" for what this implies about classes `18`/`19`).
+
+**This fully explains the bounds-check origin, but not the actual `$23`-approach wall-bump**
+from the collision caveat above - that block happened at a cell well inside the 8x10 bounds
+with no monster-array occupant nearby in that savestate, so some other, still-unlocated
+check must also be feeding into this same `$c125=7` bump path (or a different one was taken
+through the move-commit function that wasn't traced here). The generic "is this raw terrain
+tile solid" check - if one exists as a single, dedicated piece of code at all - is still not
+found; it may be folded into the tile-class dispatcher already documented at the top of this
+page rather than being a separate gate.
 
 ### The secret-passage ("?") mechanic, confirmed live
 

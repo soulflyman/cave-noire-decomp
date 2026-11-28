@@ -222,7 +222,17 @@ combat logs above exactly.
 - **Non-monster entries in the same array, confirmed again:** several slots had wildly
   different offset `$00` values (`19`, `22`) with no matching OAM sprite and zero movement
   under any condition - these are not monsters at all, just other room objects reusing the
-  same 16-byte array slots. Purpose not identified.
+  same 16-byte array slots. Purpose not identified. **Update:** traced the movement/monster-
+  collision-avoidance code (bank 0 `Call_000_3d8f`, bank 1 `$57bb`/`Call_001_57db`, found
+  while investigating a movement-blocking puzzle - see
+  [Dungeon Mechanics](Dungeon-Mechanics) "Movement collision, partially traced") and found
+  it explicitly special-cases these two class values when deciding whether an occupied
+  array slot blocks movement into its cell: **class `18`'s occupant never blocks** (always
+  treated as passable), and **class `19`'s occupant only blocks if struct offset `$05` is
+  nonzero** (passable when `$05==0`). This is strong, code-level confirmation that classes
+  `18`/`19` are non-monster "object" entries in this array specifically meant to be
+  walkable-through under some condition, rather than real monsters - though what each one
+  visually represents (trap, decoration, inert prop) still isn't identified.
 
 ## What's still open
 
