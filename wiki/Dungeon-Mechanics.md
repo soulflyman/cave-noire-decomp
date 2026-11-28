@@ -297,6 +297,39 @@ plain `$80`-with-bit-7-set value indistinguishable from an ordinary wall in this
 suggesting the exit may be a hardcoded coordinate check rather than a tile-class entry like
 stairs/chests/warps.
 
+## A second, separate per-floor "bonus feature" roll (structure found, purpose unconfirmed)
+
+Besides the already-documented 9-slot `$c300` object-placement table (monsters/items),
+there's a *second*, independent floor-setup step (`Call_001_7446`/`Call_001_747b`, bank 1
+`$7446`) that runs over the same 9 room slots but writes into a different, smaller 9-byte
+array (`$c272`-`$c27a`, reset to `$ff` = "none"):
+
+1. For each of the 9 rooms, `Call_000_12eb` (bank 0 `$12eb`) switches to bank 3 and reads one
+   byte from a per-quest/floor template at bank 3 `$5655` - indexed by `$c202` using the
+   exact same 4-byte-header-then-index scheme already confirmed for the monster
+   type→class encounter data at bank 3 `$6a75` (see [Monster System](Monster-System) "Type
+   -> class resolution"). A room whose byte reads `$ff` is excluded.
+2. `$c271` ends up holding a **count of how many of the 9 rooms qualified**.
+3. If at least one room qualified, `Call_001_747b` rolls one random byte (`Call_000_0456`),
+   scales it by the current floor depth (`Call_000_03a4`), then calls
+   `Call_000_1267_LookupQuestLevelNibbleStat` (bank 0 `$1267`) - a quest+level lookup against
+   a *third* new table, bank 2 `$6da6` (right after the item-pool weight templates), which
+   packs two 4-bit values per byte (selected by bit 0 of the per-level pointer) and returns
+   one nibble (0-15).
+4. If that nibble is nonzero, it's used as an index into a 16-entry address table at bank 1
+   `$74a5` to pick one of the (up to 9) `$c272`-`$c27a` slots, and the random roll from step 3
+   is written there.
+
+Net effect: a quest+level-dependent *chance*, gated by a per-room eligibility byte from yet
+another bank 3 template, of stamping a random value into one specific room's slot in this
+second array. Nothing in bank 0/1 reads `$c272`-`$c27a` back via a literal address (it must
+happen through another computed/indirect lookup, not yet located), so what this actually
+*controls* in-game is still unconfirmed - plausible candidates given the shape of the system
+(quest+level-scaled, per-room gated, floor-depth-scaled magnitude): which room gets a
+chest vs. a bare item pile, an Orb/Fairy-cage placement roll, or a secret-passage/trap
+count. Needs a savestate at the moment a new floor is generated, with `$c271`-`$c27a` and
+the bank 3 `$5655` template dumped, to pin down the actual effect.
+
 ## Not located at all
 
 - **Lava** — "lose all HP if you fall in" per the wiki. No tile class identified yet.

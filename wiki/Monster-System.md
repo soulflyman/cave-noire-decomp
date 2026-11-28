@@ -64,6 +64,18 @@ confirmed Crab fight. Whether `$09` is a different static stat (attack power is 
 leading guess) or whether spawned values get scaled by dungeon depth before use (which
 could reconcile things) is not confirmed either way.
 
+**Searched for a dedicated reader of offset `$09` and found none.** Every place in bank 0/1
+that indexes into the `$c5c0` monster array individually (rather than through the bulk
+6-byte stat copy at spawn) was checked for a literal offset-`9` access
+(`ld a, $09` immediately followed by `rst RST_28`, the project's standard struct-offset
+idiom): none exist. The confirmed player/monster damage formula
+(`Call_001_5c47`/`Call_001_5c75`, bank 1 `$5c47`/`$5c75`) only ever reads struct offsets `$03`
+and `$06`, never `$09`. So either `$09` is read through a path not yet located (a generic
+loop over offsets `$04`-`$09` wouldn't show up as a literal `$09` the way this search
+assumes), or it's effectively write-only in the traced code - set at spawn and never
+consumed. Still open; a live combat test remains the most promising way to actually observe
+its effect, if any.
+
 This also resolves the earlier "non-monster entries" doubt: cross-checking every class
 value seen live (`4`, `3`, `19`, `5`, `18`) against this table byte-for-byte (offsets
 `$05`-`$09`; offset `$04` is the runtime blink toggle and legitimately varies) confirms
@@ -77,6 +89,34 @@ offset `$04` = `16` (vs. `0` for every small-monster class) is simply that class
 value, not evidence of a different struct layout - the 16-byte struct is the same for
 every class. Whatever offset `$04` is "supposed to be" at rest clearly isn't always `0`;
 it still gets XOR'd with offset `$05` for the blink animation on top of that base value.
+
+## A per-class "size/weight tier" byte at `$7915` (bank 1)
+
+A 32-entry table at bank 1 `$7915`, indexed directly by class (not type), decoded from the
+ROM:
+
+```
+class  0- 7: 0, 0, 2, 2, 2, 2, 2, 2
+class  8-15: 2, 4, 2, 4, 8, 4, 8, 8
+class 16-23: 8, 8, 4, 2, 2, 2, 2, 2
+class 24-31: 2, 4, 8, 0, 1, 1, 1
+```
+
+Every value is `0`, `1`, `2`, `4`, or `8` - a small power-of-2 set, the classic shape of a
+size/weight *tier* rather than an arbitrary stat. It's read in two unrelated places:
+
+- `Jump_000_3960` (bank 0 `$3960`): looks up this table for a monster's class and, if the
+  result is nonzero, runs extra animation handling (`Call_000_399c`) - consistent with
+  "bigger/heavier monsters get an extra rendering step" (the multi-tile class-18 monster
+  from `save_009` fits: table value `4`, nonzero).
+- Item `$13`'s effect (`Call_001_4b08`, see [Item System](Item-System)): subtracts this
+  per-class value from a per-room counter for every matching monster found - i.e. the
+  effect's "cost" or "impact" per monster scales with this same size/weight tier.
+
+Both uses make sense for the same underlying quantity (StrategyWiki's kill list literally
+shows each monster's weight/height), so this table is most likely a **per-class size or
+weight category**, reused by both an animation-gating check and an item-effect scaling
+factor - not confirmed with a specific unit, but no longer an unexplained mystery table.
 
 ## Type -> class resolution (found)
 

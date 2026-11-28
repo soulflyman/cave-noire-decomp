@@ -3576,8 +3576,12 @@ jr_000_125b:
 ; Same quest+level nested-table lookup as Call_000_1248_LoadQuestLevelItemPool, but
 ; against a different table at $6da6 (bank 2, right after the item-pool template data)
 ; and returning a single packed nibble instead of copying 32 bytes - two stats share one
-; byte, selected by bit 0 of the per-level pointer's low byte. Purpose of this
-; particular per-quest/level stat not identified yet.
+; byte, selected by bit 0 of the per-level pointer's low byte. Sole caller is
+; Call_001_7446/Call_001_747b (bank 1 $7446), which uses the returned nibble as a
+; quest+level-dependent chance/index for a second, separate per-floor "bonus feature"
+; roll into $c272-$c27a (distinct from the $c300 object table) - see
+; wiki/Dungeon-Mechanics.md "A second, separate per-floor 'bonus feature' roll" for the
+; full traced chain. What that array actually controls in-game is still unconfirmed.
 Call_000_1267_LookupQuestLevelNibbleStat:
     call Call_000_04b7                            ; $1267: $cd $b7 $04
     ld a, [$c101]                                 ; $126a: $fa $01 $c1

@@ -64,8 +64,12 @@ fastest way to contribute.
   byte-for-byte against live captures. ~20 StrategyWiki types still unidentified, each
   needing a savestate with a visible, undamaged specimen.
 - **What struct offset `$09` actually is**: confirmed from the stat table to generally
-  differ from current HP (`$06`), contradicting the old "max HP" assumption - needs a
-  live combat test on a class where they clearly differ, to narrow down what it affects.
+  differ from current HP (`$06`), contradicting the old "max HP" assumption. Searched
+  statically for every direct reader of this offset in bank 0/1 - found none outside the
+  spawn-time bulk copy (the confirmed damage formula only reads offsets `$03`/`$06`). So
+  either it's read through a path not yet located, or it's write-only in the traced code.
+  Needs a live combat test on a class where it clearly differs from HP, to narrow down what
+  it affects (if anything observable).
 - **A `$01`-type conflict**: a second creature sharing Crab's type byte (`$01`) but with
   HP 8 instead of Crab's confirmed 5 turned up in two savestates. Needs a live combat test
   (HP-decrease tracking, as used for Crab) to figure out whether it's a real variant or a
@@ -121,3 +125,16 @@ fastest way to contribute.
 - **Quest type 3/4 (Orb/Fairy) objective addresses**: derived statically from the ROM bank 2
   header table, unlike quest types 1/2 which were confirmed live against the HUD. Needs
   savestates with an active Orb or Fairy quest to confirm the same way.
+- **The actual code that writes the resolved quest target into `$c16b`/`$c16d`/`$c16e`/
+  `$c170` at quest start**: searched further and ruled out one more false lead (a literal
+  `$6e1c` operand in bank 0 that turned out to belong to a sound-engine routine with bank 4
+  paged in, unrelated to the bank 2 quest table). Still not found - these four addresses are
+  never written via a literal store anywhere in bank 0/1, only ever read (for HUD display).
+  Must happen through a fully computed/indirect write not yet isolated. Needs a savestate
+  right at quest start with a memory-write watchpoint on these four addresses.
+- **A second, independent per-floor "bonus feature" system** (`$c271`-`$c27a`, distinct from
+  the known `$c300` object table): found and structurally traced (see
+  [Dungeon Mechanics](Dungeon-Mechanics) "A second, separate per-floor 'bonus feature'
+  roll"), but what it actually controls in-game is unconfirmed - nothing reads
+  `$c272`-`$c27a` back via a literal address. Needs a savestate at floor generation with
+  `$c271`-`$c27a` and the bank 3 `$5655` per-quest/floor template dumped.
