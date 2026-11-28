@@ -115,10 +115,44 @@ def crop_cell(img, row, col, scale=SCALE):
     return cell.resize((16 * scale, 16 * scale), Image.NEAREST)
 
 
+def bg_tiles_at(memory, row, col):
+    """Returns the 4 raw background-tilemap tile IDs ($9800-based) underneath a logical
+    16x16 cell (2x2 actual 8x8 BG tiles), plus the LCDC addressing-mode bit - so the
+    glossary can show exactly how many distinct hardware tiles compose what's rendered,
+    instead of just a flattened screenshot crop. This does NOT tell us the raw room byte
+    -> BG tile ID mapping (still unsolved - see the module docstring); it's the ground
+    truth of what's physically in VRAM at that screen position, nothing more."""
+    base_row, base_col = row * 2, col * 2
+    tiles = [memory[0x9800 + (base_row + dr) * 32 + (base_col + dc)] for dr in range(2) for dc in range(2)]
+    lcdc = memory[0xFF40]
+    addressing = "$8000" if (lcdc & 0x10) else "$8800"
+    return tiles, addressing
+
+
+def oam_sprites_at_cell(memory, row, col):
+    """Returns the list of raw OAM entries (index, y, x, tile, attr) whose zero-offset
+    16px screen cell matches (row, col) exactly - see tile_grid.read_sprite_cells for the
+    mapping this bucketing is based on. This is the actual hardware sprite composition,
+    not a guess from pixel bounding boxes."""
+    hits = []
+    for i in range(40):
+        y = memory[OAM_BASE + i * 4]
+        x = memory[OAM_BASE + i * 4 + 1]
+        if y == 0 or x == 0:
+            continue
+        if (y - 16) // 16 == row and (x - 8) // 16 == col:
+            tile = memory[OAM_BASE + i * 4 + 2]
+            attr = memory[OAM_BASE + i * 4 + 3]
+            hits.append((i, y, x, tile, attr))
+    return hits
+
+
 def crop_oam_monster(memory, img, type_id, class_id, scale=SCALE):
-    """Finds the OAM sprite pair for a monster slot matching (type_id, class_id) and crops
-    its bounding box directly from the rendered screen. Returns None if not found on
-    screen right now."""
+    """Finds the OAM sprite pair for a monster slot matching (type_id, class_id), crops
+    its bounding box directly from the rendered screen, and returns the matching raw OAM
+    entries alongside it so the glossary can report exactly how many hardware sprites
+    (and which VRAM tile IDs) compose it - not just a flattened pixel crop. Returns
+    (None, []) if not found on screen right now."""
     target_rc = None
     for slot in range(0x24):
         base = 0xC5C0 + slot * 0x10
@@ -126,30 +160,19 @@ def crop_oam_monster(memory, img, type_id, class_id, scale=SCALE):
             target_rc = (memory[base + 2], memory[base + 3])
             break
     if target_rc is None:
-        return None
+        return None, []
 
     row, col = target_rc
-    xs, ys = [], []
-    for i in range(40):
-        y = memory[OAM_BASE + i * 4]
-        x = memory[OAM_BASE + i * 4 + 1]
-        if y == 0 or x == 0:
-            continue
-        # Bucket into the same zero-offset 16px cell the struct's row/col uses (see
-        # tile_grid.read_sprite_cells) - a radius-based match risks pulling in an
-        # adjacent sprite (e.g. the player, mid-attack) into the same bounding box.
-        sprite_row = (y - 16) // 16
-        sprite_col = (x - 8) // 16
-        if sprite_row == row and sprite_col == col:
-            xs.append(x)
-            ys.append(y)
-    if not xs:
-        return None
+    sprites = oam_sprites_at_cell(memory, row, col)
+    if not sprites:
+        return None, []
+    xs = [s[2] for s in sprites]
+    ys = [s[1] for s in sprites]
     x0, x1 = min(xs) - 8, max(xs) - 8 + 8
     y0, y1 = min(ys) - 16, max(ys) - 16 + 8
     cell = img.crop((x0, y0, x1, y1))
     w, h = cell.size
-    return cell.resize((w * scale, h * scale), Image.NEAREST)
+    return cell.resize((w * scale, h * scale), Image.NEAREST), sprites
 
 
 def build_index():
@@ -210,32 +233,37 @@ def render_assets(terrain_hits, item_hits, monster_hits):
             pyboy.tick()
 
     terrain_files = {}
+    terrain_tiles = {}
     for raw, (state_path, row, col) in sorted(terrain_hits.items()):
         load(state_path)
         img = pyboy.screen.image.convert("RGB")
         out = ASSETS_DIR / "terrain" / f"{raw:02x}.png"
         crop_cell(img, row, col).save(out)
         terrain_files[raw] = out
+        terrain_tiles[raw] = bg_tiles_at(pyboy.memory, row, col)
 
     item_files = {}
+    item_tiles = {}
     for item_type, (state_path, row, col) in sorted(item_hits.items()):
         load(state_path)
         img = pyboy.screen.image.convert("RGB")
         out = ASSETS_DIR / "items" / f"{item_type:02x}.png"
         crop_cell(img, row, col).save(out)
         item_files[item_type] = out
+        item_tiles[item_type] = bg_tiles_at(pyboy.memory, row, col)
 
     monster_files = {}
+    monster_sprites = {}
     for (mtype, cls), state_path in sorted(monster_hits.items()):
         load(state_path)
         img = pyboy.screen.image.convert("RGB")
-        frame1 = crop_oam_monster(pyboy.memory, img, mtype, cls)
+        frame1, sprites1 = crop_oam_monster(pyboy.memory, img, mtype, cls)
         if frame1 is None:
             continue
         for _ in range(16):
             pyboy.tick()
         img2 = pyboy.screen.image.convert("RGB")
-        frame2 = crop_oam_monster(pyboy.memory, img2, mtype, cls)
+        frame2, sprites2 = crop_oam_monster(pyboy.memory, img2, mtype, cls)
 
         out = ASSETS_DIR / "monsters" / f"type{mtype:02x}_class{cls}.gif"
         if frame2 is not None and frame2.size == frame1.size:
@@ -244,16 +272,35 @@ def render_assets(terrain_hits, item_hits, monster_hits):
             out = out.with_suffix(".png")
             frame1.save(out)
         monster_files[(mtype, cls)] = out
+        monster_sprites[(mtype, cls)] = (sprites1, sprites2)
 
     pyboy.stop()
-    return terrain_files, item_files, monster_files
+    return terrain_files, terrain_tiles, item_files, item_tiles, monster_files, monster_sprites
 
 
 def rel(path: Path) -> str:
     return path.relative_to(PROJECT_ROOT / "wiki").as_posix()
 
 
-def write_glossary(terrain_hits, terrain_files, item_hits, item_files, monster_hits, monster_files):
+def format_bg_tiles(tiles_and_mode):
+    tiles, addressing = tiles_and_mode
+    unique = len(set(tiles))
+    ids = ",".join(f"${t:02x}" for t in tiles)
+    return f"{unique} unique ({ids}, {addressing})"
+
+
+def format_oam_sprites(sprites_frame1):
+    if not sprites_frame1:
+        return "no sprite found here"
+    parts = [f"${tile:02x}/attr ${attr:02x}" for (_i, _y, _x, tile, attr) in sprites_frame1]
+    return f"{len(sprites_frame1)} sprite(s): " + "; ".join(parts)
+
+
+def write_glossary(
+    terrain_hits, terrain_files, terrain_tiles,
+    item_hits, item_files, item_tiles,
+    monster_hits, monster_files, monster_sprites,
+):
     lines = []
     lines.append("# Sprite Glossary")
     lines.append("")
@@ -287,8 +334,17 @@ def write_glossary(terrain_hits, terrain_files, item_hits, item_files, monster_h
 
     lines.append("## Map / terrain tiles")
     lines.append("")
-    lines.append("| Image | Raw ID | Identified as | Confidence | Source |")
-    lines.append("|---|---|---|---|---|")
+    lines.append(
+        "**\"BG tiles\" column:** the actual hardware background-tilemap tile IDs "
+        "underneath this cell (2x2 real 8x8 tiles per logical 16x16 cell), read directly "
+        "from `$9800` - i.e. ground truth for how many *distinct* tiles are actually "
+        "stacked/arranged here, independent of the flattened screenshot crop. This is "
+        "**not** the room's raw terrain byte translated to graphics (that mapping is "
+        "still unsolved, see the caveat above) - it's simply what's physically in VRAM."
+    )
+    lines.append("")
+    lines.append("| Image | Raw ID | BG tiles | Identified as | Confidence | Source |")
+    lines.append("|---|---|---|---|---|---|")
     for raw in sorted(terrain_hits):
         if raw not in terrain_files:
             continue
@@ -296,13 +352,20 @@ def write_glossary(terrain_hits, terrain_files, item_hits, item_files, monster_h
         name, conf = TERRAIN_NAMES.get(raw, ("Unknown", "Unidentified"))
         img_rel = rel(terrain_files[raw])
         src = state_path.relative_to(PROJECT_ROOT).as_posix()
-        lines.append(f"| ![]({img_rel}) | `${raw:02x}` | {name} | {conf} | `{src}` ({row},{col}) |")
+        tiles_desc = format_bg_tiles(terrain_tiles[raw])
+        lines.append(f"| ![]({img_rel}) | `${raw:02x}` | {tiles_desc} | {name} | {conf} | `{src}` ({row},{col}) |")
     lines.append("")
 
     lines.append("## Items")
     lines.append("")
-    lines.append("| Image | Type ID | Identified as | Confidence | Source |")
-    lines.append("|---|---|---|---|---|")
+    lines.append(
+        "Item/chest floor icons are background tiles too (the `$d500` overlay system "
+        "swaps tilemap entries, see [Dungeon Mechanics](Dungeon-Mechanics)), so the same "
+        "BG-tile ground truth applies here as for terrain above."
+    )
+    lines.append("")
+    lines.append("| Image | Type ID | BG tiles | Identified as | Confidence | Source |")
+    lines.append("|---|---|---|---|---|---|")
     for item_type in sorted(item_hits):
         if item_type not in item_files:
             continue
@@ -310,7 +373,8 @@ def write_glossary(terrain_hits, terrain_files, item_hits, item_files, monster_h
         name, conf = ITEM_NAMES.get(item_type, ("Unknown", "Unidentified"))
         img_rel = rel(item_files[item_type])
         src = state_path.relative_to(PROJECT_ROOT).as_posix()
-        lines.append(f"| ![]({img_rel}) | `${item_type:02x}` | {name} | {conf} | `{src}` ({row},{col}) |")
+        tiles_desc = format_bg_tiles(item_tiles[item_type])
+        lines.append(f"| ![]({img_rel}) | `${item_type:02x}` | {tiles_desc} | {name} | {conf} | `{src}` ({row},{col}) |")
     lines.append("")
 
     lines.append("## Monsters")
@@ -318,11 +382,14 @@ def write_glossary(terrain_hits, terrain_files, item_hits, item_files, monster_h
     lines.append(
         "Animated (2-frame GIF, 16 ticks apart) where the blink-toggle struct field "
         "(offset `$04`/`$05`, see [Monster System](Monster-System)) actually changes the "
-        "sprite in that window; falls back to a static PNG otherwise."
+        "sprite in that window; falls back to a static PNG otherwise. **\"OAM sprites\" "
+        "column:** the exact hardware sprite count and VRAM tile ID/attribute for each "
+        "one composing frame 1 - read directly from OAM, not inferred from pixels, so "
+        "it's unambiguous whether one, two, or more sprites are stacked here."
     )
     lines.append("")
-    lines.append("| Image | Type | Class | Identified as | Confidence | Source |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| Image | Type | Class | OAM sprites (frame 1) | Identified as | Confidence | Source |")
+    lines.append("|---|---|---|---|---|---|---|")
     for (mtype, cls) in sorted(monster_hits):
         if (mtype, cls) not in monster_files:
             continue
@@ -330,7 +397,9 @@ def write_glossary(terrain_hits, terrain_files, item_hits, item_files, monster_h
         name, conf = MONSTER_NAMES.get((mtype, cls), ("Unknown", "Unidentified"))
         img_rel = rel(monster_files[(mtype, cls)])
         src = state_path.relative_to(PROJECT_ROOT).as_posix()
-        lines.append(f"| ![]({img_rel}) | `${mtype:02x}` | `{cls}` | {name} | {conf} | `{src}` |")
+        sprites1, _sprites2 = monster_sprites[(mtype, cls)]
+        sprites_desc = format_oam_sprites(sprites1)
+        lines.append(f"| ![]({img_rel}) | `${mtype:02x}` | `{cls}` | {sprites_desc} | {name} | {conf} | `{src}` |")
     lines.append("")
 
     lines.append("## Menu sprites, fonts, misc")
@@ -373,8 +442,13 @@ if __name__ == "__main__":
     print(f"Found {len(terrain_hits)} terrain IDs, {len(item_hits)} item types, {len(monster_hits)} monster (type,class) pairs")
 
     print("Rendering crops...")
-    terrain_files, item_files, monster_files = render_assets(terrain_hits, item_hits, monster_hits)
+    (terrain_files, terrain_tiles, item_files, item_tiles,
+     monster_files, monster_sprites) = render_assets(terrain_hits, item_hits, monster_hits)
 
     print("Writing glossary...")
-    write_glossary(terrain_hits, terrain_files, item_hits, item_files, monster_hits, monster_files)
+    write_glossary(
+        terrain_hits, terrain_files, terrain_tiles,
+        item_hits, item_files, item_tiles,
+        monster_hits, monster_files, monster_sprites,
+    )
     print(f"Done -> {GLOSSARY_PATH}")
